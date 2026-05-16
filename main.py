@@ -11,6 +11,7 @@ from PySide6.QtGui import QOpenGLContext
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QFrame,
     QMainWindow,
     QWidget,
@@ -42,7 +43,13 @@ class MPVVideoWidget(QOpenGLWidget):
         )  # Connect signal to Qt's internal redraw loop
 
     def initializeGL(self):
-        self.mpv_player = mpv.MPV(vo="libmpv", wid="0", keep_open="yes")
+        self.mpv_player = mpv.MPV(
+            vo="libmpv",
+            profile="fast",
+            hwdec="auto-safe",
+            wid="0",
+            keep_open="yes",
+        )
         self.mpv_player["video-unscaled"] = "no"
         self.mpv_player["panscan"] = 1.0
 
@@ -237,11 +244,12 @@ QLabel {
     font-size: 24px;
     font-weight: bold;
     color: #ECEFF1;
-    padding-bottom: 2px;
+    padding-top: 8px;
+    padding-bottom: 8px;
 }
 """
 
-BUTTON_STYLE = """
+BUTTON_STYLE_BLUE = """
 QPushButton {
     background-color: #228be6;
     color: white;
@@ -251,6 +259,32 @@ QPushButton {
 }
 QPushButton:hover {
     background-color: #1c7ed6;
+}
+"""
+
+BUTTON_STYLE_RED = """
+QPushButton {
+    background-color: #e03131;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+}
+QPushButton:hover {
+    background-color: #c92a2a;
+}
+"""
+
+BUTTON_STYLE_PURPLE = """
+QPushButton {
+    background-color: #7048e8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+}
+QPushButton:hover {
+    background-color: #5f3dc4;
 }
 """
 
@@ -271,7 +305,7 @@ class VideoCanvas(QMainWindow):
         self.library_rows = library_rows
         self.library_previews_per_row = library_previews_per_row
 
-        self.setWindowTitle("Video Manager")
+        self.setWindowTitle("Smart Video Previewer")
         self.resize(1600, 900)
         self.setStyleSheet("background-color: #121214;")
         self.video_extensions = (".mp4", ".mov")
@@ -292,17 +326,37 @@ class VideoCanvas(QMainWindow):
 
         self.btn_restart = QPushButton("↻ Restart")
         self.btn_restart.clicked.connect(lambda: self.restart_previews())
-        self.btn_restart.setStyleSheet(BUTTON_STYLE)
+        self.btn_restart.setStyleSheet(BUTTON_STYLE_RED)
         self.btn_plus_1_min = QPushButton("▶▶ 1 min")
         self.btn_plus_1_min.clicked.connect(lambda: self.jump_minutes(1))
-        self.btn_plus_1_min.setStyleSheet(BUTTON_STYLE)
+        self.btn_plus_1_min.setStyleSheet(BUTTON_STYLE_BLUE)
         self.btn_plus_5_min = QPushButton("▶▶ 5 min")
         self.btn_plus_5_min.clicked.connect(lambda: self.jump_minutes(5))
-        self.btn_plus_5_min.setStyleSheet(BUTTON_STYLE)
+        self.btn_plus_5_min.setStyleSheet(BUTTON_STYLE_BLUE)
         self.btn_randomize = QPushButton("🎲 Randomize")
-        self.btn_randomize.setStyleSheet(BUTTON_STYLE)
+        self.btn_randomize.setStyleSheet(BUTTON_STYLE_PURPLE)
         self.btn_randomize.clicked.connect(self.randomize)
         self.cb_randomize_related = QCheckBox("Include related")
+        self.cb_randomize_related.setStyleSheet("""
+        QCheckBox {
+            color: white;
+            spacing: 4px;
+        }
+        QCheckBox::indicator {
+            background-color: #2b2c30;
+            border: 1px solid #373a40;
+            border-radius: 4px;
+            width: 14px;
+            height: 14px;
+        }
+        QCheckBox::indicator:hover {
+            border-color: #228be6; /* Blue border on hover */
+        }
+        QCheckBox::indicator:checked {
+            background-color: #228be6; /* Fills blue when checked */
+            border-color: #228be6;
+        }
+        """)
         self.cb_randomize_related.setChecked(True)
 
         self.controls.addWidget(self.btn_restart)
@@ -314,7 +368,6 @@ class VideoCanvas(QMainWindow):
         self.outer_layout.addLayout(self.controls)
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.outer_layout.addWidget(self.splitter)
 
         # --- Left Side: Structured Content Area ---
         self.grid_container = QWidget()
@@ -325,6 +378,12 @@ class VideoCanvas(QMainWindow):
         self.related_header = QLabel("Related")
         self.related_header.setStyleSheet(HEADER_STYLE)
         self.container_layout.addWidget(self.related_header)
+
+        self.related_line = QFrame()
+        self.related_line.setFrameShape(QFrame.HLine)
+        self.related_line.setFrameShadow(QFrame.Sunken)
+        self.related_line.setStyleSheet("background-color: #444; margin: 10px 5px;")
+        self.container_layout.addWidget(self.related_line)
 
         # 1. Related Content Grid
         self.related_previews = []
@@ -342,16 +401,16 @@ class VideoCanvas(QMainWindow):
 
         self.container_layout.addWidget(self.related_widget)
 
-        # 2. Add the Divider (Horizontal Line)
-        self.line = QFrame()
-        self.line.setFrameShape(QFrame.HLine)
-        self.line.setFrameShadow(QFrame.Sunken)
-        self.line.setStyleSheet("background-color: #444; margin: 10px 5px;")
-        self.container_layout.addWidget(self.line)
-
         self.library_header = QLabel("Library")
         self.library_header.setStyleSheet(HEADER_STYLE)
         self.container_layout.addWidget(self.library_header)
+
+        # 2. Add the Divider (Horizontal Line)
+        self.library_line = QFrame()
+        self.library_line.setFrameShape(QFrame.HLine)
+        self.library_line.setFrameShadow(QFrame.Sunken)
+        self.library_line.setStyleSheet("background-color: #444; margin: 10px 5px;")
+        self.container_layout.addWidget(self.library_line)
 
         # 3. Library Grid
         self.library_previews = []
@@ -374,27 +433,49 @@ class VideoCanvas(QMainWindow):
         self.container_layout.addStretch()
 
         # --- Right Side: List View ---
+        self.files_widget = QWidget()
+        self.files_layout = QVBoxLayout(self.files_widget)
+        self.files_widget.setFixedWidth(150)
+        self.btn_reset = QPushButton("↩ Clear")
+        self.btn_reset.setStyleSheet(BUTTON_STYLE_RED)
+        self.dropdown = QComboBox()
+        self.dropdown.setStyleSheet("""
+        QComboBox {
+            background-color: #2b2c30;
+            color: white;
+            border: 1px solid #373a40;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        QComboBox:hover {
+            border-color: #228be6; /* Blue border on hover */
+        }
+        """)
+        self.dropdown.currentIndexChanged.connect(self.filter_list)
+        self.btn_reset.clicked.connect(lambda: self.dropdown.setCurrentIndex(0))
         self.list_widget = QListWidget()
-        self.list_widget.setFixedWidth(125)
         self.list_widget.itemClicked.connect(
             self.handle_list_click
         )  # Single click to update "Related"
         self.list_widget.itemDoubleClicked.connect(self.handle_list_double_click)
+        self.files_layout.addWidget(self.dropdown)
+        self.files_layout.addWidget(self.list_widget)
+        self.files_layout.addWidget(self.btn_reset)
 
         self.splitter.addWidget(self.grid_container)
-        self.splitter.addWidget(self.list_widget)
+        self.splitter.addWidget(self.files_widget)
         self.outer_layout.addWidget(self.splitter)
 
         self.related_header.hide()
+        self.related_line.hide()
         self.related_widget.hide()
-        self.line.hide()
 
         if self.current_folder:
-            QTimer.singleShot(250, self.refresh)
+            QTimer.singleShot(250, self.initial_refresh)
         else:
             QTimer.singleShot(250, self.initial_pick_folder)
 
-    def populate_list_view(self):
+    def populate_list_view(self, pref=None):
         self.list_widget.clear()
         files = [
             f
@@ -406,6 +487,9 @@ class VideoCanvas(QMainWindow):
         )
 
         for path in self.all_files:
+            if pref and pref != prefix(path):
+                continue
+
             item = QListWidgetItem(os.path.basename(path))
             item.setData(Qt.UserRole, path)
             self.list_widget.addItem(item)
@@ -431,19 +515,13 @@ class VideoCanvas(QMainWindow):
             matches = [
                 f
                 for f in self.all_files
-                if (
-                    self.prefix
-                    == re.sub(
-                        r"\d+", "", os.path.splitext(os.path.basename(f))[0]
-                    ).strip()
-                )
-                and (self.selected_path != f)
+                if self.prefix == prefix(f) and (self.selected_path != f)
             ]
             matches = sorted(matches)
 
         self.related_header.setVisible(True)
+        self.related_line.setVisible(True)
         self.related_widget.setVisible(True)
-        self.line.setVisible(True)
 
         # Fill the previews
         num_to_show = min(
@@ -456,13 +534,12 @@ class VideoCanvas(QMainWindow):
         else:
             match = re.match(r"([A-Za-z]+)(\d+)", os.path.basename(self.selected_path))
             if match:
-                prefix = match.group(1)
-                number = int(match.group(2))
+                pref = match.group(1)
+                numb = int(match.group(2))
 
                 selection = []
                 next = [
-                    prefix + str(n) + "."
-                    for n in range(number + 1, number + num_to_show + 1)
+                    pref + str(n) + "." for n in range(numb + 1, numb + num_to_show + 1)
                 ]
                 for n in next:
                     next_match = [m for m in matches if n in m]
@@ -487,6 +564,10 @@ class VideoCanvas(QMainWindow):
         path = item.data(Qt.UserRole)
         if path:
             open_file_with_player(path)
+
+    def filter_list(self):
+        selected_prefix = self.dropdown.currentText()
+        self.populate_list_view(selected_prefix if selected_prefix != "All" else None)
 
     def randomize(self):
         if not self.all_files:
@@ -516,12 +597,13 @@ class VideoCanvas(QMainWindow):
         folder = QFileDialog.getExistingDirectory(self, "Select Videos")
         if folder:
             self.current_folder = QDir.toNativeSeparators(os.path.abspath(folder))
-            self.refresh()
+            self.initial_refresh()
         else:
             QApplication.quit()
 
-    def refresh(self):
+    def initial_refresh(self):
         self.populate_list_view()
+        self.dropdown.addItems(["All"] + list(sorted(all_prefixes(self.all_files))))
         self.randomize()
 
     def changeEvent(self, event):
@@ -532,6 +614,14 @@ class VideoCanvas(QMainWindow):
                 preview.set_playback(is_active)
 
         super().changeEvent(event)
+
+
+def prefix(name):
+    return re.sub(r"\d+", "", os.path.splitext(os.path.basename(name))[0]).strip()
+
+
+def all_prefixes(names):
+    return set([prefix(n) for n in names])
 
 
 def file_sort_key(name):
@@ -566,7 +656,7 @@ if __name__ == "__main__":
         folder_path = QDir.toNativeSeparators(os.path.abspath(folder))
 
     related_rows = 2
-    related_previews_per_row = 4
+    related_previews_per_row = 3
     library_rows = 2
     library_previews_per_row = 4
     if len(sys.argv) == 6:
