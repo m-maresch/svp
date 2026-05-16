@@ -1,13 +1,9 @@
 import logging
 import re
-import sys
 import os
 import random
-import subprocess
 
-import mpv
 
-from PySide6.QtGui import QOpenGLContext
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -24,272 +20,25 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QScrollArea,
-    QSizePolicy,
     QSplitter,
 )
-from PySide6.QtCore import Qt, QEvent, QTimer, QDir, Signal
-from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from PySide6.QtCore import Qt, QEvent, QTimer, QDir
+
+from player import open_file_with_player
+
+from preview import VideoPreviewWidget
+
+from style import (
+    HEADER_STYLE,
+    BUTTON_STYLE_BLUE,
+    BUTTON_STYLE_RED,
+    BUTTON_STYLE_PURPLE,
+    CHECKBOX_STYLE,
+    DROPDOWN_STYLE,
+)
 
 
-class MPVVideoWidget(QOpenGLWidget):
-    frame_ready = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.mpv_player = None
-        self.mpv_ctx = None
-        self.frame_ready.connect(
-            self.update
-        )  # Connect signal to Qt's internal redraw loop
-
-    def initializeGL(self):
-        self.mpv_player = mpv.MPV(
-            vo="libmpv",
-            profile="fast",
-            hwdec="auto-safe",
-            wid="0",
-            keep_open="yes",
-        )
-        self.mpv_player["video-unscaled"] = "no"
-        self.mpv_player["panscan"] = 1.0
-
-        # Grab the native OpenGL function pointer from Qt
-        def get_proc_address(_, name):
-            ctx = QOpenGLContext.currentContext()
-            return int(ctx.getProcAddress(name)) if ctx else 0
-
-        # Create the rendering context binding mpv to this specific OpenGL widget
-        self.proc_address_fn = mpv.MpvGlGetProcAddressFn(get_proc_address)
-        self.mpv_ctx = mpv.MpvRenderContext(
-            self.mpv_player,
-            "opengl",
-            opengl_init_params={"get_proc_address": self.proc_address_fn},
-        )
-
-        # Whenever mpv receives a frame, trigger our signal
-        self.mpv_ctx.update_cb = self.update_cb
-
-        self.setMuted(True)
-
-    def update_cb(self):
-        try:
-            self.frame_ready.emit()
-        except RuntimeError as e:
-            logging.info(f"Frame ready emit failed: {e}")
-
-    def paintGL(self):
-        if self.mpv_ctx:
-            ratio = self.devicePixelRatio()
-            w = int(self.width() * ratio)
-            h = int(self.height() * ratio)
-
-            fbo = int(self.defaultFramebufferObject())
-
-            # Tell mpv to render into our widget's active FBO
-            self.mpv_ctx.render(flip_y=True, opengl_fbo={"w": w, "h": h, "fbo": fbo})
-
-    def play(self, url):
-        if self.mpv_player:
-            self.mpv_player.play(url)
-
-    def stop(self):
-        if self.mpv_player:
-            self.mpv_player.stop()
-
-    def closeEvent(self, event):
-        if self.mpv_ctx:
-            self.mpv_ctx.free()
-        if self.mpv_player:
-            self.mpv_player.terminate()
-        super().closeEvent(event)
-
-    def setMuted(self, mute_state: bool):
-        if self.mpv_player and self.mpv_player.mute != mute_state:
-            self.mpv_player.mute = mute_state
-
-    def setPaused(self, pause_state: bool):
-        if self.mpv_player and self.mpv_player.pause != pause_state:
-            self.mpv_player.pause = pause_state
-
-    def seekRelative(self, seconds):
-        if self.mpv_player:
-            current_time = self.mpv_player.time_pos
-            if current_time is not None:
-                self.mpv_player.time_pos = current_time + seconds
-
-    def seekToStart(self):
-        if self.mpv_player:
-            self.mpv_player.time_pos = 0
-            self.mpv_player.pause = False
-
-
-class VideoPreviewWidget(QWidget):
-    """Individual grid item with video and double-click support."""
-
-    def __init__(self, idx, parent=None):
-        super().__init__(parent)
-        self.idx = idx
-
-        self.file_path = ""
-        self.layout = QGridLayout(self)
-        self.layout.setContentsMargins(2, 2, 2, 2)
-
-        self.setMaximumWidth(800)
-        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
-
-        self.video_widget = MPVVideoWidget()
-        self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        self.mask_overlay = QLabel()
-        self.mask_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.mask_overlay.setStyleSheet("""
-            QLabel {
-                background-color: transparent;
-                border: 3px solid ; /* Matches app background */
-                border-radius: 12px;
-                margin: -3px;
-            }
-        """)
-
-        # This allows the widget to catch double clicks
-        self.video_widget.installEventFilter(self)
-
-        self.video_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-        self.show_duration_ms = 10000
-        self.skip_interval_s = 60  # 1 minute
-
-        self.jump_timer = QTimer(self)
-        self.jump_timer.timeout.connect(lambda: self.jump_seconds(self.skip_interval_s))
-
-        self.label = QLabel("-")
-        self.label.setAlignment(Qt.AlignLeft)
-        self.label.setWordWrap(True)
-        self.label.setStyleSheet("font-size: 10px; color: #777;")
-
-        self.layout.addWidget(self.video_widget, 0, 0)
-        self.layout.addWidget(self.mask_overlay, 0, 0)
-        self.layout.addWidget(self.label, 1, 0)
-
-        self.setMouseTracking(True)
-
-        self.hover_timer = QTimer(self)
-        self.hover_timer.setSingleShot(True)
-        self.hover_timer.setInterval(2000)
-        self.hover_timer.timeout.connect(lambda: self.video_widget.setMuted(False))
-
-    def event(self, event):
-        if event.type() == QEvent.Type.HoverEnter:
-            self.hover_timer.start()
-        elif event.type() == QEvent.Type.HoverLeave:
-            if self.hover_timer.isActive():
-                self.hover_timer.stop()
-            self.video_widget.setMuted(True)
-        return super().event(event)
-
-    def mouseDoubleClickEvent(self, event):
-        if self.file_path:
-            open_file_with_player(self.file_path)
-
-    def load_video(self, file_path):
-        self.file_path = file_path
-
-        self.video_widget.stop()
-        self.jump_timer.stop()
-
-        if file_path:
-            self.video_widget.play(self.file_path)
-            self.video_widget.show()
-            self.label.show()
-
-            # Start the jumping cycle
-            QTimer.singleShot(
-                self.idx * 200, lambda: self.jump_timer.start(self.show_duration_ms)
-            )
-            self.label.setText(os.path.basename(file_path))
-        else:
-            self.video_widget.hide()
-            self.label.hide()
-
-    def restart(self):
-        self.video_widget.seekToStart()
-
-    def jump_seconds(self, number):
-        self.video_widget.seekRelative(number)
-
-    def set_playback(self, active: bool):
-        """Handle App Focus Changes"""
-        if self.file_path:
-            if active:
-                self.video_widget.setPaused(False)
-                self.jump_timer.start(self.show_duration_ms)
-            else:
-                self.video_widget.setPaused(True)
-                self.jump_timer.stop()
-
-    def resizeEvent(self, event):
-        """Force the widget to maintain a 16:9 aspect ratio based on its width."""
-        width = self.width()
-        target_height = int(width * 9 / 16)
-
-        if self.height() != target_height:
-            label_height = self.label.sizeHint().height()
-            self.setFixedHeight(target_height + label_height)
-
-        super().resizeEvent(event)
-
-
-HEADER_STYLE = """
-QLabel {
-    font-size: 24px;
-    font-weight: bold;
-    color: #ECEFF1;
-    padding-top: 8px;
-    padding-bottom: 8px;
-}
-"""
-
-BUTTON_STYLE_BLUE = """
-QPushButton {
-    background-color: #228be6;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 6px 12px;
-}
-QPushButton:hover {
-    background-color: #1c7ed6;
-}
-"""
-
-BUTTON_STYLE_RED = """
-QPushButton {
-    background-color: #e03131;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 6px 12px;
-}
-QPushButton:hover {
-    background-color: #c92a2a;
-}
-"""
-
-BUTTON_STYLE_PURPLE = """
-QPushButton {
-    background-color: #7048e8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 6px 12px;
-}
-QPushButton:hover {
-    background-color: #5f3dc4;
-}
-"""
-
-
-class VideoCanvas(QMainWindow):
+class SVP(QMainWindow):
     def __init__(
         self,
         current_folder,
@@ -337,26 +86,7 @@ class VideoCanvas(QMainWindow):
         self.btn_randomize.setStyleSheet(BUTTON_STYLE_PURPLE)
         self.btn_randomize.clicked.connect(self.randomize)
         self.cb_randomize_related = QCheckBox("Include related")
-        self.cb_randomize_related.setStyleSheet("""
-        QCheckBox {
-            color: white;
-            spacing: 4px;
-        }
-        QCheckBox::indicator {
-            background-color: #2b2c30;
-            border: 1px solid #373a40;
-            border-radius: 4px;
-            width: 14px;
-            height: 14px;
-        }
-        QCheckBox::indicator:hover {
-            border-color: #228be6; /* Blue border on hover */
-        }
-        QCheckBox::indicator:checked {
-            background-color: #228be6; /* Fills blue when checked */
-            border-color: #228be6;
-        }
-        """)
+        self.cb_randomize_related.setStyleSheet(CHECKBOX_STYLE)
         self.cb_randomize_related.setChecked(True)
 
         self.controls.addWidget(self.btn_restart)
@@ -439,18 +169,7 @@ class VideoCanvas(QMainWindow):
         self.btn_reset = QPushButton("↩ Clear")
         self.btn_reset.setStyleSheet(BUTTON_STYLE_RED)
         self.dropdown = QComboBox()
-        self.dropdown.setStyleSheet("""
-        QComboBox {
-            background-color: #2b2c30;
-            color: white;
-            border: 1px solid #373a40;
-            border-radius: 4px;
-            padding: 5px;
-        }
-        QComboBox:hover {
-            border-color: #228be6; /* Blue border on hover */
-        }
-        """)
+        self.dropdown.setStyleSheet(DROPDOWN_STYLE)
         self.dropdown.currentIndexChanged.connect(self.filter_list)
         self.btn_reset.clicked.connect(lambda: self.dropdown.setCurrentIndex(0))
         self.list_widget = QListWidget()
@@ -483,11 +202,11 @@ class VideoCanvas(QMainWindow):
             if f.lower().endswith(self.video_extensions)
         ]
         self.all_files = sorted(
-            [os.path.join(self.current_folder, f) for f in files], key=file_sort_key
+            [os.path.join(self.current_folder, f) for f in files], key=_file_sort_key
         )
 
         for path in self.all_files:
-            if pref and pref != prefix(path):
+            if pref and pref != _prefix(path):
                 continue
 
             item = QListWidgetItem(os.path.basename(path))
@@ -515,7 +234,7 @@ class VideoCanvas(QMainWindow):
             matches = [
                 f
                 for f in self.all_files
-                if self.prefix == prefix(f) and (self.selected_path != f)
+                if self.prefix == _prefix(f) and (self.selected_path != f)
             ]
             matches = sorted(matches)
 
@@ -603,7 +322,7 @@ class VideoCanvas(QMainWindow):
 
     def initial_refresh(self):
         self.populate_list_view()
-        self.dropdown.addItems(["All"] + list(sorted(all_prefixes(self.all_files))))
+        self.dropdown.addItems(["All"] + list(sorted(_all_prefixes(self.all_files))))
         self.randomize()
 
     def changeEvent(self, event):
@@ -616,66 +335,13 @@ class VideoCanvas(QMainWindow):
         super().changeEvent(event)
 
 
-def prefix(name):
+def _prefix(name):
     return re.sub(r"\d+", "", os.path.splitext(os.path.basename(name))[0]).strip()
 
 
-def all_prefixes(names):
-    return set([prefix(n) for n in names])
+def _all_prefixes(names):
+    return set([_prefix(n) for n in names])
 
 
-def file_sort_key(name):
+def _file_sort_key(name):
     return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
-
-
-def open_file_with_player(filepath):
-    if sys.platform == "win32":
-        os.startfile(filepath)
-    elif sys.platform == "darwin":
-        subprocess.Popen(
-            [
-                "/Applications/VLC.app/Contents/MacOS/VLC",
-                "--fullscreen",
-                "--play-and-exit",
-                filepath,
-            ]
-        )
-    else:
-        subprocess.Popen(["xdg-open", filepath])
-
-
-if __name__ == "__main__":
-    os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg*=false"
-    logging.basicConfig(level=logging.INFO)
-
-    app = QApplication(sys.argv)
-
-    folder_path = ""
-    if len(sys.argv) > 1:
-        folder = sys.argv[1]
-        folder_path = QDir.toNativeSeparators(os.path.abspath(folder))
-
-    related_rows = 2
-    related_previews_per_row = 3
-    library_rows = 2
-    library_previews_per_row = 4
-    if len(sys.argv) == 6:
-        related_rows = int(sys.argv[2])
-        related_previews_per_row = int(sys.argv[3])
-        library_rows = int(sys.argv[4])
-        library_previews_per_row = int(sys.argv[5])
-
-    logging.info(
-        f"Using related grid={related_rows}x{related_previews_per_row} and library grid={library_rows}x{library_previews_per_row}"
-    )
-
-    window = VideoCanvas(
-        folder_path,
-        related_rows,
-        related_previews_per_row,
-        library_rows,
-        library_previews_per_row,
-    )
-    window.show()
-
-    sys.exit(app.exec())
