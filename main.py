@@ -10,6 +10,7 @@ import mpv
 from PySide6.QtGui import QOpenGLContext
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QFrame,
     QMainWindow,
     QWidget,
@@ -41,7 +42,7 @@ class MPVVideoWidget(QOpenGLWidget):
         )  # Connect signal to Qt's internal redraw loop
 
     def initializeGL(self):
-        self.mpv_player = mpv.MPV(vo="libmpv", wid="0")
+        self.mpv_player = mpv.MPV(vo="libmpv", wid="0", keep_open="yes")
         self.mpv_player["video-unscaled"] = "no"
         self.mpv_player["panscan"] = 1.0
 
@@ -109,6 +110,11 @@ class MPVVideoWidget(QOpenGLWidget):
             if current_time is not None:
                 self.mpv_player.time_pos = current_time + seconds
 
+    def seekToStart(self):
+        if self.mpv_player:
+            self.mpv_player.time_pos = 0
+            self.mpv_player.pause = False
+
 
 class VideoPreviewWidget(QWidget):
     """Individual grid item with video and double-click support."""
@@ -118,41 +124,51 @@ class VideoPreviewWidget(QWidget):
         self.idx = idx
 
         self.file_path = ""
-        self.layout = QVBoxLayout(self)
+        self.layout = QGridLayout(self)
         self.layout.setContentsMargins(2, 2, 2, 2)
 
+        self.setMaximumWidth(800)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
 
         self.video_widget = MPVVideoWidget()
         self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.video_widget.setStyleSheet(
-            "background-color: #000; border: 1px solid #444;"
-        )
+
+        self.mask_overlay = QLabel()
+        self.mask_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.mask_overlay.setStyleSheet("""
+            QLabel {
+                background-color: transparent;
+                border: 3px solid ; /* Matches app background */
+                border-radius: 12px;
+                margin: -3px;
+            }
+        """)
 
         # This allows the widget to catch double clicks
         self.video_widget.installEventFilter(self)
 
         self.video_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self.jump_timer = QTimer(self)
-        self.jump_timer.timeout.connect(self.perform_jump)
-
         self.show_duration_ms = 10000
         self.skip_interval_s = 60  # 1 minute
+
+        self.jump_timer = QTimer(self)
+        self.jump_timer.timeout.connect(lambda: self.jump_seconds(self.skip_interval_s))
 
         self.label = QLabel("-")
         self.label.setAlignment(Qt.AlignLeft)
         self.label.setWordWrap(True)
         self.label.setStyleSheet("font-size: 10px; color: #777;")
 
-        self.layout.addWidget(self.video_widget)
-        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.video_widget, 0, 0)
+        self.layout.addWidget(self.mask_overlay, 0, 0)
+        self.layout.addWidget(self.label, 1, 0)
 
         self.setMouseTracking(True)
 
         self.hover_timer = QTimer(self)
         self.hover_timer.setSingleShot(True)
-        self.hover_timer.setInterval(1000)
+        self.hover_timer.setInterval(2000)
         self.hover_timer.timeout.connect(lambda: self.video_widget.setMuted(False))
 
     def event(self, event):
@@ -188,8 +204,11 @@ class VideoPreviewWidget(QWidget):
             self.video_widget.hide()
             self.label.hide()
 
-    def perform_jump(self):
-        self.video_widget.seekRelative(self.skip_interval_s)
+    def restart(self):
+        self.video_widget.seekToStart()
+
+    def jump_seconds(self, number):
+        self.video_widget.seekRelative(number)
 
     def set_playback(self, active: bool):
         """Handle App Focus Changes"""
@@ -213,6 +232,29 @@ class VideoPreviewWidget(QWidget):
         super().resizeEvent(event)
 
 
+HEADER_STYLE = """
+QLabel {
+    font-size: 24px;
+    font-weight: bold;
+    color: #ECEFF1;
+    padding-bottom: 2px;
+}
+"""
+
+BUTTON_STYLE = """
+QPushButton {
+    background-color: #228be6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+}
+QPushButton:hover {
+    background-color: #1c7ed6;
+}
+"""
+
+
 class VideoCanvas(QMainWindow):
     def __init__(
         self,
@@ -231,6 +273,7 @@ class VideoCanvas(QMainWindow):
 
         self.setWindowTitle("Video Manager")
         self.resize(1600, 900)
+        self.setStyleSheet("background-color: #121214;")
         self.video_extensions = (".mp4", ".mov")
         self.all_files = []  # Store full sorted list for "Related" logic
         self.selected_path = ""
@@ -246,9 +289,28 @@ class VideoCanvas(QMainWindow):
 
         # Control Bar
         self.controls = QHBoxLayout()
-        self.btn_refresh = QPushButton("🎲 Randomize")
-        self.btn_refresh.clicked.connect(self.load_random_batch)
-        self.controls.addWidget(self.btn_refresh)
+
+        self.btn_restart = QPushButton("↻ Restart")
+        self.btn_restart.clicked.connect(lambda: self.restart_previews())
+        self.btn_restart.setStyleSheet(BUTTON_STYLE)
+        self.btn_plus_1_min = QPushButton("▶▶ 1 min")
+        self.btn_plus_1_min.clicked.connect(lambda: self.jump_minutes(1))
+        self.btn_plus_1_min.setStyleSheet(BUTTON_STYLE)
+        self.btn_plus_5_min = QPushButton("▶▶ 5 min")
+        self.btn_plus_5_min.clicked.connect(lambda: self.jump_minutes(5))
+        self.btn_plus_5_min.setStyleSheet(BUTTON_STYLE)
+        self.btn_randomize = QPushButton("🎲 Randomize")
+        self.btn_randomize.setStyleSheet(BUTTON_STYLE)
+        self.btn_randomize.clicked.connect(self.randomize)
+        self.cb_randomize_related = QCheckBox("Include related")
+        self.cb_randomize_related.setChecked(True)
+
+        self.controls.addWidget(self.btn_restart)
+        self.controls.addWidget(self.btn_plus_1_min)
+        self.controls.addWidget(self.btn_plus_5_min)
+        self.controls.addStretch(1)
+        self.controls.addWidget(self.btn_randomize)
+        self.controls.addWidget(self.cb_randomize_related)
         self.outer_layout.addLayout(self.controls)
 
         self.splitter = QSplitter(Qt.Horizontal)
@@ -260,9 +322,12 @@ class VideoCanvas(QMainWindow):
         self.container_layout.setContentsMargins(0, 0, 0, 0)
         self.container_layout.setSpacing(0)
 
-        self.related_previews = []
+        self.related_header = QLabel("Related")
+        self.related_header.setStyleSheet(HEADER_STYLE)
+        self.container_layout.addWidget(self.related_header)
 
         # 1. Related Content Grid
+        self.related_previews = []
         self.related_widget = QWidget()
         self.related_layout = QGridLayout(self.related_widget)
         self.related_layout.setSpacing(2)
@@ -283,6 +348,10 @@ class VideoCanvas(QMainWindow):
         self.line.setFrameShadow(QFrame.Sunken)
         self.line.setStyleSheet("background-color: #444; margin: 10px 5px;")
         self.container_layout.addWidget(self.line)
+
+        self.library_header = QLabel("Library")
+        self.library_header.setStyleSheet(HEADER_STYLE)
+        self.container_layout.addWidget(self.library_header)
 
         # 3. Library Grid
         self.library_previews = []
@@ -306,7 +375,7 @@ class VideoCanvas(QMainWindow):
 
         # --- Right Side: List View ---
         self.list_widget = QListWidget()
-        self.list_widget.setFixedWidth(100)
+        self.list_widget.setFixedWidth(125)
         self.list_widget.itemClicked.connect(
             self.handle_list_click
         )  # Single click to update "Related"
@@ -316,6 +385,7 @@ class VideoCanvas(QMainWindow):
         self.splitter.addWidget(self.list_widget)
         self.outer_layout.addWidget(self.splitter)
 
+        self.related_header.hide()
         self.related_widget.hide()
         self.line.hide()
 
@@ -355,7 +425,7 @@ class VideoCanvas(QMainWindow):
         self.update_related_row()
 
     def update_related_row(self):
-        # 1. Determine if we have matches
+        # Determine if we have matches
         matches = []
         if self.all_files and self.prefix:
             matches = [
@@ -371,29 +441,46 @@ class VideoCanvas(QMainWindow):
             ]
             matches = sorted(matches)
 
-        # 2. Toggle visibility of the entire Related section and the Divider
-        # If no prefix or no matches, hide it all
-        has_enough_content = len(matches) >= 3
-        self.related_widget.setVisible(has_enough_content)
-        self.line.setVisible(has_enough_content)
+        self.related_header.setVisible(True)
+        self.related_widget.setVisible(True)
+        self.line.setVisible(True)
 
-        if not has_enough_content:
-            # Clean up the media players to stop background processing
-            for p in self.related_previews:
-                p.load_video(None)
-            return
-
-        # 3. Fill the previews as usual
+        # Fill the previews
         num_to_show = min(
             len(matches), self.related_rows * self.related_previews_per_row
         )
-        random_selection = random.sample(matches, num_to_show)
-        random_selection.sort()
+
+        if self.cb_randomize_related.isChecked():
+            selection = random.sample(matches, num_to_show)
+            selection.sort()
+        else:
+            match = re.match(r"([A-Za-z]+)(\d+)", os.path.basename(self.selected_path))
+            if match:
+                prefix = match.group(1)
+                number = int(match.group(2))
+
+                selection = []
+                next = [
+                    prefix + str(n) + "."
+                    for n in range(number + 1, number + num_to_show + 1)
+                ]
+                for n in next:
+                    next_match = [m for m in matches if n in m]
+                    if next_match:
+                        selection.append(next_match[0])
+            else:
+                logging.info("No more next related")
+                return
 
         self.related_previews[0].load_video(self.selected_path)
         for i, preview in enumerate(self.related_previews[1:]):
-            path = random_selection[i] if i < len(random_selection) else None
+            path = selection[i] if i < len(selection) else None
             preview.load_video(path)
+
+            if path:
+                preview.show()
+            else:
+                preview.hide()
 
     def handle_list_double_click(self, item):
         """Opens the video in the default system player on double-click."""
@@ -401,7 +488,7 @@ class VideoCanvas(QMainWindow):
         if path:
             open_file_with_player(path)
 
-    def load_random_batch(self):
+    def randomize(self):
         if not self.all_files:
             return
 
@@ -417,6 +504,14 @@ class VideoCanvas(QMainWindow):
             path = selection[i] if i < len(selection) else None
             preview.load_video(path)
 
+    def restart_previews(self):
+        for preview in self.related_previews + self.library_previews:
+            preview.restart()
+
+    def jump_minutes(self, number):
+        for preview in self.related_previews + self.library_previews:
+            preview.jump_seconds(number * 60)
+
     def initial_pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Videos")
         if folder:
@@ -427,7 +522,7 @@ class VideoCanvas(QMainWindow):
 
     def refresh(self):
         self.populate_list_view()
-        self.load_random_batch()
+        self.randomize()
 
     def changeEvent(self, event):
         """Detects focus changes to pause/resume all videos."""
@@ -470,10 +565,10 @@ if __name__ == "__main__":
         folder = sys.argv[1]
         folder_path = QDir.toNativeSeparators(os.path.abspath(folder))
 
-    related_rows = 1
-    related_previews_per_row = 6
+    related_rows = 2
+    related_previews_per_row = 4
     library_rows = 2
-    library_previews_per_row = 6
+    library_previews_per_row = 4
     if len(sys.argv) == 6:
         related_rows = int(sys.argv[2])
         related_previews_per_row = int(sys.argv[3])
