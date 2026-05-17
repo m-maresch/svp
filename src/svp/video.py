@@ -18,6 +18,39 @@ class MPVVideoWidget(QOpenGLWidget):
             self.update
         )  # Connect signal to Qt's internal redraw loop
 
+    def _emit_frame_ready(self):
+        try:
+            self.frame_ready.emit()
+        except RuntimeError as e:
+            logging.info(f"Frame ready emit failed: {e}")
+
+    def play(self, url):
+        if self.mpv_player:
+            self.mpv_player.play(url)
+
+    def stop(self):
+        if self.mpv_player:
+            self.mpv_player.stop()
+
+    def set_paused(self, pause_state: bool):
+        if self.mpv_player and self.mpv_player.pause != pause_state:
+            self.mpv_player.pause = pause_state
+
+    def set_muted(self, mute_state: bool):
+        if self.mpv_player and self.mpv_player.mute != mute_state:
+            self.mpv_player.mute = mute_state
+
+    def seek_relative(self, seconds):
+        if self.mpv_player:
+            current_time = self.mpv_player.time_pos
+            if current_time is not None:
+                self.mpv_player.time_pos = current_time + seconds
+
+    def seek_to_start(self):
+        if self.mpv_player:
+            self.mpv_player.time_pos = 0
+            self.mpv_player.pause = False
+
     def initializeGL(self):
         self.mpv_player = mpv.MPV(
             vo="libmpv",
@@ -43,15 +76,9 @@ class MPVVideoWidget(QOpenGLWidget):
         )
 
         # Whenever mpv receives a frame, trigger our signal
-        self.mpv_ctx.update_cb = self.update_cb
+        self.mpv_ctx.update_cb = self._emit_frame_ready
 
-        self.setMuted(True)
-
-    def update_cb(self):
-        try:
-            self.frame_ready.emit()
-        except RuntimeError as e:
-            logging.info(f"Frame ready emit failed: {e}")
+        self.set_muted(True)
 
     def paintGL(self):
         if self.mpv_ctx:
@@ -64,36 +91,9 @@ class MPVVideoWidget(QOpenGLWidget):
             # Tell mpv to render into our widget's active FBO
             self.mpv_ctx.render(flip_y=True, opengl_fbo={"w": w, "h": h, "fbo": fbo})
 
-    def play(self, url):
-        if self.mpv_player:
-            self.mpv_player.play(url)
-
-    def stop(self):
-        if self.mpv_player:
-            self.mpv_player.stop()
-
     def closeEvent(self, event):
         if self.mpv_ctx:
             self.mpv_ctx.free()
         if self.mpv_player:
             self.mpv_player.terminate()
         super().closeEvent(event)
-
-    def setMuted(self, mute_state: bool):
-        if self.mpv_player and self.mpv_player.mute != mute_state:
-            self.mpv_player.mute = mute_state
-
-    def setPaused(self, pause_state: bool):
-        if self.mpv_player and self.mpv_player.pause != pause_state:
-            self.mpv_player.pause = pause_state
-
-    def seekRelative(self, seconds):
-        if self.mpv_player:
-            current_time = self.mpv_player.time_pos
-            if current_time is not None:
-                self.mpv_player.time_pos = current_time + seconds
-
-    def seekToStart(self):
-        if self.mpv_player:
-            self.mpv_player.time_pos = 0
-            self.mpv_player.pause = False
