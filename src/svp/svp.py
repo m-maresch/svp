@@ -19,10 +19,10 @@ from PySide6.QtWidgets import (
     QPushButton,
     QListWidget,
     QListWidgetItem,
-    QScrollArea,
     QSplitter,
 )
 from PySide6.QtCore import Qt, QEvent, QTimer, QDir
+from PySide6.QtGui import QKeySequence, QShortcut
 
 from player import open_file_with_player
 
@@ -67,14 +67,13 @@ class SVP(QMainWindow):
         self.all_files = []
         self.selected_path = ""
         self.prefix = ""
+        self.playback = True
+        self.skip_related = 0
 
         self.container_widget = QWidget()
+        self.container_widget.setMaximumHeight(height * 0.95)
+        self.setCentralWidget(self.container_widget)
         self.outer_layout = QVBoxLayout(self.container_widget)
-
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.container_widget)
-        self.setCentralWidget(self.scroll_area)
 
         # Control Bar
         self.controls = QHBoxLayout()
@@ -82,12 +81,21 @@ class SVP(QMainWindow):
         self.btn_restart = QPushButton("↻ Restart")
         self.btn_restart.clicked.connect(lambda: self._restart_previews())
         self.btn_restart.setStyleSheet(BUTTON_STYLE_RED)
+        self.btn_toggle_playback = QPushButton("⏸ Pause")
+        self.btn_toggle_playback.clicked.connect(lambda: self._toggle_playback())
+        self.btn_toggle_playback.setStyleSheet(BUTTON_STYLE_RED)
         self.btn_plus_1_min = QPushButton("▶▶ 1 min")
         self.btn_plus_1_min.clicked.connect(lambda: self._jump_minutes(1))
         self.btn_plus_1_min.setStyleSheet(BUTTON_STYLE_BLUE)
         self.btn_plus_5_min = QPushButton("▶▶ 5 min")
         self.btn_plus_5_min.clicked.connect(lambda: self._jump_minutes(5))
         self.btn_plus_5_min.setStyleSheet(BUTTON_STYLE_BLUE)
+        self.btn_hide_related = QPushButton("Hide related")
+        self.btn_hide_related.clicked.connect(lambda: self._hide_related())
+        self.btn_hide_related.setStyleSheet(BUTTON_STYLE_BLUE)
+        self.btn_toggle_library = QPushButton("Hide library")
+        self.btn_toggle_library.clicked.connect(lambda: self._toggle_library())
+        self.btn_toggle_library.setStyleSheet(BUTTON_STYLE_BLUE)
         self.btn_randomize = QPushButton("🎲 Randomize")
         self.btn_randomize.setStyleSheet(BUTTON_STYLE_PURPLE)
         self.btn_randomize.clicked.connect(self._randomize)
@@ -96,9 +104,12 @@ class SVP(QMainWindow):
         self.checkbox_randomize_related.setChecked(True)
 
         self.controls.addWidget(self.btn_restart)
+        self.controls.addWidget(self.btn_toggle_playback)
         self.controls.addWidget(self.btn_plus_1_min)
         self.controls.addWidget(self.btn_plus_5_min)
         self.controls.addStretch(1)
+        self.controls.addWidget(self.btn_hide_related)
+        self.controls.addWidget(self.btn_toggle_library)
         self.controls.addWidget(self.btn_randomize)
         self.controls.addWidget(self.checkbox_randomize_related)
         self.outer_layout.addLayout(self.controls)
@@ -191,9 +202,18 @@ class SVP(QMainWindow):
         self.splitter.addWidget(self.files_widget)
         self.outer_layout.addWidget(self.splitter)
 
-        self.related_header.hide()
-        self.related_line.hide()
-        self.related_widget.hide()
+        self._hide_related()
+
+        self.space_shortcut = QShortcut(QKeySequence("Space"), self)
+        self.space_shortcut.activated.connect(self._toggle_playback)
+        self.left_shortcut = QShortcut(QKeySequence("Left"), self)
+        self.left_shortcut.activated.connect(self._restart_previews)
+        self.right_shortcut = QShortcut(QKeySequence("Right"), self)
+        self.right_shortcut.activated.connect(lambda: self._jump_minutes(1))
+        self.randomize_shortcut = QShortcut(QKeySequence("R"), self)
+        self.randomize_shortcut.activated.connect(self._randomize)
+        self.quit_shortcut = QShortcut(QKeySequence("Q"), self)
+        self.quit_shortcut.activated.connect(self.close)
 
         if self.current_folder:
             QTimer.singleShot(250, self._initial_refresh)
@@ -203,10 +223,42 @@ class SVP(QMainWindow):
     def _restart_previews(self):
         for preview in self.related_previews + self.library_previews:
             preview.restart()
+            self._set_playback(self.playback)
 
     def _jump_minutes(self, number):
         for preview in self.related_previews + self.library_previews:
             preview.jump_seconds(number * 60)
+
+    def _toggle_playback(self):
+        self.playback = not self.playback
+        if self.playback:
+            self.btn_toggle_playback.setText("⏸ Pause")
+        else:
+            self.btn_toggle_playback.setText("▶ Play")
+        self._set_playback(self.playback)
+
+    def _set_playback(self, active):
+        for preview in self.related_previews + self.library_previews:
+            preview.set_playback(active)
+
+    def _hide_related(self):
+        self.related_header.hide()
+        self.related_line.hide()
+        self.related_widget.hide()
+        self.btn_hide_related.hide()
+        self.selected_path = ""
+
+    def _toggle_library(self):
+        if self.library_widget.isVisible():
+            self.library_header.hide()
+            self.library_line.hide()
+            self.library_widget.hide()
+            self.btn_toggle_library.setText("Show library")
+        else:
+            self.library_header.show()
+            self.library_line.show()
+            self.library_widget.show()
+            self.btn_toggle_library.setText("Hide library")
 
     def _randomize(self):
         if not self.all_files:
@@ -250,6 +302,7 @@ class SVP(QMainWindow):
     def _handle_files_list_click(self, item):
         self.selected_path = item.data(Qt.UserRole)
         self.prefix = _prefix(self.selected_path)
+        self.skip_related = 0
         self._update_related()
 
     def _handle_files_list_double_click(self, item):
@@ -271,6 +324,7 @@ class SVP(QMainWindow):
         self.related_header.setVisible(True)
         self.related_line.setVisible(True)
         self.related_widget.setVisible(True)
+        self.btn_hide_related.setVisible(True)
 
         num_to_show = min(
             len(matches), self.related_rows * self.related_previews_per_row
@@ -283,7 +337,7 @@ class SVP(QMainWindow):
             match = re.match(r"([A-Za-z-]+)(\d+)", os.path.basename(self.selected_path))
             if match:
                 pref = match.group(1)
-                numb = int(match.group(2))
+                numb = int(match.group(2)) + self.skip_related
 
                 selection = []
                 next = [
@@ -293,6 +347,8 @@ class SVP(QMainWindow):
                     next_match = [m for m in matches if n in m]
                     if next_match:
                         selection.append(next_match[0])
+
+                self.skip_related += num_to_show - 1
             else:
                 logging.info("No more next related")
                 return
@@ -327,10 +383,18 @@ class SVP(QMainWindow):
         """Detects focus changes to pause/resume all videos."""
         if event.type() == QEvent.ActivationChange:
             is_active = self.isActiveWindow()
-            for preview in self.related_previews + self.library_previews:
-                preview.set_playback(is_active)
+            self._set_playback(is_active)
 
         super().changeEvent(event)
+
+    def closeEvent(self, event):
+        for preview in self.related_previews + self.library_previews:
+            preview.cleanup()
+
+        self.related_previews.clear()
+        self.library_previews.clear()
+
+        super().closeEvent(event)
 
 
 def _prefix(name):

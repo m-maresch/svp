@@ -51,6 +51,13 @@ class MPVVideoWidget(QOpenGLWidget):
             self.mpv_player.time_pos = 0
             self.mpv_player.pause = False
 
+    def cleanup(self):
+        self.stop()
+        if self.mpv_ctx:
+            self.mpv_ctx.free()
+        if self.mpv_player:
+            self.mpv_player.terminate()
+
     def initializeGL(self):
         self.mpv_player = mpv.MPV(
             vo="libmpv",
@@ -90,10 +97,3 @@ class MPVVideoWidget(QOpenGLWidget):
 
             # Tell mpv to render into our widget's active FBO
             self.mpv_ctx.render(flip_y=True, opengl_fbo={"w": w, "h": h, "fbo": fbo})
-
-    def closeEvent(self, event):
-        if self.mpv_ctx:
-            self.mpv_ctx.free()
-        if self.mpv_player:
-            self.mpv_player.terminate()
-        super().closeEvent(event)

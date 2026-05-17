@@ -89,7 +89,7 @@ class VideoPreviewWidget(QWidget):
             self.video_widget.show()
             self.label.show()
 
-            QTimer.singleShot(1500, lambda: self.video_widget.seek_relative(10))
+            QTimer.singleShot(1500, lambda: self.video_widget.seek_relative(20))
 
             QTimer.singleShot(
                 self.idx * 200, lambda: self.jump_timer.start(self.show_duration_ms)
@@ -98,6 +98,9 @@ class VideoPreviewWidget(QWidget):
         else:
             self.video_widget.hide()
             self.label.hide()
+
+    def cleanup(self):
+        self.video_widget.cleanup()
 
     def event(self, event):
         if event.type() == QEvent.Type.HoverEnter:
@@ -113,12 +116,22 @@ class VideoPreviewWidget(QWidget):
             open_file_with_player(self.file_path)
 
     def resizeEvent(self, event):
-        """Force the widget to maintain a 16:9 aspect ratio based on its width."""
-        width = self.width()
-        target_height = int(width * 9 / 16)
+        """Force the video to maintain a 16:9 aspect ratio based on its width."""
+        target_video_width = self.width()
+        target_video_height = int(target_video_width * 9 / 16)
 
-        if self.height() != target_height:
-            label_height = self.label.sizeHint().height()
-            self.setFixedHeight(target_height + label_height)
+        label_height = self.label.sizeHint().height()
+        max_available_height = (
+            self.height() - label_height - 6
+        )  # 6px buffer for layout margins
+
+        if target_video_height > max_available_height:
+            target_video_height = max(0, max_available_height)
+            target_video_width = int(target_video_height * 16 / 9)
+            self.video_widget.setFixedSize(target_video_width, target_video_height)
+            self.mask_overlay.setFixedSize(target_video_width, target_video_height)
+        else:
+            self.video_widget.setFixedHeight(target_video_height)
+            self.mask_overlay.setFixedHeight(target_video_height)
 
         super().resizeEvent(event)
