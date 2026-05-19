@@ -51,6 +51,11 @@ class MPVVideoWidget(QOpenGLWidget):
             self.mpv_player.time_pos = 0
             self.mpv_player.pause = False
 
+    def length(self):
+        if self.mpv_player:
+            return self.mpv_player.duration
+        return None
+
     def cleanup(self):
         self.stop()
         if self.mpv_ctx:

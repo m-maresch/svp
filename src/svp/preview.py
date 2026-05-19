@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QSizePolicy,
 )
@@ -47,14 +48,22 @@ class VideoPreviewWidget(QWidget):
         self.jump_timer = QTimer(self)
         self.jump_timer.timeout.connect(lambda: self.jump_seconds(self.skip_interval_s))
 
-        self.label = QLabel("-")
-        self.label.setAlignment(Qt.AlignLeft)
-        self.label.setWordWrap(True)
-        self.label.setStyleSheet("font-size: 10px; color: #777;")
+        self.label_widget = QWidget()
+        self.label_layout = QHBoxLayout(self.label_widget)
+        self.label_layout.setContentsMargins(0, 0, 0, 0)
+        self.name_label = QLabel("-")
+        self.name_label.setAlignment(Qt.AlignLeft)
+        self.name_label.setStyleSheet("font-size: 10px; color: #999;")
+        self.length_label = QLabel("")
+        self.length_label.setAlignment(Qt.AlignLeft)
+        self.length_label.setStyleSheet("font-size: 10px; color: #666;")
+        self.label_layout.addWidget(self.name_label)
+        self.label_layout.addWidget(self.length_label)
+        self.label_layout.addStretch()
 
         self.layout.addWidget(self.video_widget, 0, 0)
         self.layout.addWidget(self.mask_overlay, 0, 0)
-        self.layout.addWidget(self.label, 1, 0)
+        self.layout.addWidget(self.label_widget, 1, 0)
 
         self.setMouseTracking(True)
 
@@ -87,17 +96,27 @@ class VideoPreviewWidget(QWidget):
         if file_path:
             self.video_widget.play(self.file_path)
             self.video_widget.show()
-            self.label.show()
 
+            self.name_label.setText(os.path.basename(file_path))
+            self.label_widget.show()
+
+            QTimer.singleShot(1000, self._load_video_length)
             QTimer.singleShot(1500, lambda: self.video_widget.seek_relative(20))
-
             QTimer.singleShot(
                 self.idx * 200, lambda: self.jump_timer.start(self.show_duration_ms)
             )
-            self.label.setText(os.path.basename(file_path))
         else:
             self.video_widget.hide()
-            self.label.hide()
+            self.label_widget.hide()
+
+    def _load_video_length(self):
+        length = self.video_widget.length()
+        if length:
+            mins, secs = divmod(int(length), 60)
+            if mins > 0:
+                self.length_label.setText(f"({mins}m {secs}s)")
+            else:
+                self.length_label.setText(f"({secs}s)")
 
     def cleanup(self):
         self.video_widget.cleanup()
@@ -120,7 +139,7 @@ class VideoPreviewWidget(QWidget):
         target_video_width = self.width()
         target_video_height = int(target_video_width * 9 / 16)
 
-        label_height = self.label.sizeHint().height()
+        label_height = self.label_widget.sizeHint().height()
         max_available_height = (
             self.height() - label_height - 6
         )  # 6px buffer for layout margins
