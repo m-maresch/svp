@@ -4,7 +4,7 @@ A hardware-accelerated desktop application built with Python, PySide6, and `mpv`
 
 https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 
----
+The previews show recordings of a video from the [VisDrone-VID2019 dataset](https://github.com/VisDrone/VisDrone-Dataset) being processed by [VATE](https://github.com/m-maresch/vate).
 
 ## Features
 
@@ -16,15 +16,11 @@ https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 * **System Integration:** Double-clicking a preview or list item opens the file in an available player (via `startfile` on Windows, `VLC` on macOS, and `xdg-open` on Linux).
 * **Multi-Stream OpenGL Rendering:** Uses native OpenGL bindings to draw hardware-accelerated video frames directly inside PySide6 widgets.
 
----
-
 ## Tech Stack
 
 * **GUI Framework:** PySide6 (Qt for Python)
 * **Video Back-end:** `mpv`
 * **Rendering Engine:** OpenGL (via `QOpenGLWidget` & `MpvRenderContext`)
-
----
 
 ## Highlighted Interface Controls
 
@@ -33,8 +29,6 @@ https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 * **🎲 Randomize:** Refreshes the Library grid with a new random selection from the directory.
 * **Prefix Dropdown:** Filters the side list to show only files belonging to a specific prefix.
 * **Include Related Checkbox:** Toggles between random selection and chronological sequence for the "Related" panel.
-
----
 
 ## File Naming & Prefix Logic
 
@@ -50,8 +44,6 @@ The engine strips all **numerical digits**, **extensions**, and **trailing space
 
 ### Natural Alphanumeric Sorting
 The file manager uses a natural sorting algorithm. This makes it such that `Video2.mp4` appears before `Video10.mp4` in lists and "Related" match calculations.
-
----
 
 ## Installation
 
@@ -77,13 +69,11 @@ source bin/activate
 pip install PySide6 mpv
 ```
 
----
-
 ## Usage & CLI Arguments
 
 Run the application from the terminal. You can optionally define the target folder and grid dimensions via positional arguments.
 
-```bash
+```
 python main.py [folder_path] [related_rows] [related_cols] [library_rows] [library_cols]
 ```
 
