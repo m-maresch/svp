@@ -2,6 +2,8 @@
 
 A hardware-accelerated desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid environment. It utilizes custom OpenGL widgets to render fluid previews, automatically skips through video timelines, and groups related files using automated filename prefix extraction.
 
+https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
+
 ---
 
 ## Features
