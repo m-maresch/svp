@@ -59,7 +59,7 @@ pip install PySide6 mpv
 Run the application from the terminal. You can optionally define the target folder and grid dimensions via positional arguments.
 
 ```
-python main.py [folder_path] [related_rows] [related_cols] [library_rows] [library_cols]
+./svp.sh [folder_path] [related_rows] [related_cols] [library_rows] [library_cols]
 ```
 
 | Argument | Type | Default | Description |
