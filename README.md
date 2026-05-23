@@ -1,56 +1,41 @@
 # SVP: Smart Video Previewer
 
-A hardware-accelerated desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid environment. It utilizes custom OpenGL widgets to render fluid previews, automatically skips through video timelines, and groups related files using automated filename prefix extraction.
+A hardware-accelerated desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid. It provides browsing functionality, automatically skips through video timelines, and groups related files using filename prefix extraction.
 
 https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 
-The previews show recordings of a video from the [VisDrone-VID2019 dataset](https://github.com/VisDrone/VisDrone-Dataset) being processed by [VATE](https://github.com/m-maresch/vate).
+The previews above show recordings of a video from the [VisDrone-VID2019 dataset](https://github.com/VisDrone/VisDrone-Dataset) being processed by [VATE](https://github.com/m-maresch/vate).
 
 ## Features
 
-* **Smart Content Segmentation:**
+* **Content Segmentation:**
     * **Library Grid:** Displays a randomized selection of videos from the target folder.
     * **Related Grid:** Groups and reveals files matching the prefix of the selected video.
 * **Timeline Jump Cycles:** Automatically skips forward by 60 seconds every 10 seconds, providing an overview of video content over time.
 * **Contextual Audio Hover:** Previews are muted by default. Hovering over a video for 2 seconds automatically unmutes its audio feed.
-* **System Integration:** Double-clicking a preview or list item opens the file in an available player (via `startfile` on Windows, `VLC` on macOS, and `xdg-open` on Linux).
-* **Multi-Stream OpenGL Rendering:** Uses native OpenGL bindings to draw hardware-accelerated video frames directly inside PySide6 widgets.
-
-## Tech Stack
-
-* **GUI Framework:** PySide6 (Qt for Python)
-* **Video Back-end:** `mpv`
-* **Rendering Engine:** OpenGL (via `QOpenGLWidget` & `MpvRenderContext`)
+* **Player Integration:** Double-clicking a preview or list item opens the file in an available player (via `startfile` on Windows, `VLC` on macOS, and `xdg-open` on Linux).
+* **Multi-Stream Rendering:** Uses OpenGL to draw video frames from `mpv` directly inside PySide6 widgets.
 
 ## Highlighted Interface Controls
 
 * **↻ Restart:** Resets all active previews to the 0:00 timestamp.
 * **▶▶ 1 min / 5 min:** Offsets all playing videos forward by the specified duration.
-* **🎲 Randomize:** Refreshes the Library grid with a new random selection from the directory.
-* **Prefix Dropdown:** Filters the side list to show only files belonging to a specific prefix.
-* **Include Related Checkbox:** Toggles between random selection and chronological sequence for the "Related" panel.
+* **🎲 Randomize:** Refreshes the grids with a new random selection from the directory.
+* **Prefix Dropdown:** Filters the side list to show only files with a specific prefix.
+* **Include Related Checkbox:** Toggles between random selection and ordered sequence for the "Related" panel.
 
-## File Naming & Prefix Logic
+## Tech Stack
 
-The application uses regular expressions to calculate video relationships based on the directory's naming conventions.
-
-### How Prefix Matching Works
-The engine strips all **numerical digits**, **extensions**, and **trailing spaces** from a file's name to generate its structural "Prefix." This allows files sharing the same base alphabetical string to group together.
-* `A1.mp4` → Prefix: `A`
-* `A2.mp4` → Prefix: `A`
-* `AB1.mov` → Prefix: `AB`
-* `AB2.mp4` → Prefix: `AB`
-* `B1.mov` → Prefix: `B`
-
-### Natural Alphanumeric Sorting
-The file manager uses a natural sorting algorithm. This makes it such that `Video2.mp4` appears before `Video10.mp4` in lists and "Related" match calculations.
+* **Language:** Python
+* **GUI Framework:** PySide6 (Qt for Python)
+* **Video Back-End:** `mpv`
 
 ## Installation
 
 ### Prerequisites
-1.  **mpv Shared Library:** `mpv` must be installed.
+1. `mpv` must be installed.
     * E.g. on **macOS:** `brew install mpv`
-2. **Video Player:** A supported video player must be available.
+2. A supported video player must be available.
     * E.g. on **macOS**: VLC
 
 ### Setup
@@ -85,7 +70,20 @@ python main.py [folder_path] [related_rows] [related_cols] [library_rows] [libra
 | `library_rows` | Int | 2 | Number of rows for the **Library** panel. |
 | `library_cols` | Int | 5 | Number of columns for the **Library** panel. |
 
-**Note:** To use custom grid dimensions, you must provide all 5 arguments.
+## File Naming & Prefix Logic
+
+The application uses regular expressions to calculate video relationships based on the directory's naming conventions.
+
+### How Prefix Matching Works
+SVP strips all digits and extensions from a file's name to generate its structural "prefix". This allows files sharing the same prefix to be grouped together.
+* `A1.mp4` → Prefix: `A`
+* `A2.mp4` → Prefix: `A`
+* `AB1.mov` → Prefix: `AB`
+* `AB2.mp4` → Prefix: `AB`
+* `B1.mov` → Prefix: `B`
+
+### Natural Sorting
+SVP uses a natural sorting algorithm. This makes it such that `Video2.mp4` appears before `Video10.mp4` in lists and "Related" match calculations.
 
 ## Acknowledgments
 
