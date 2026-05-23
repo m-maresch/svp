@@ -135,8 +135,10 @@ class SVP(QMainWindow):
         self.related_widget = QWidget()
         self.related_layout = QGridLayout(self.related_widget)
         self.related_layout.setSpacing(2)
+
+        related_preview_max_width = width * 1 / self.related_previews_per_row
         for i in range(self.related_rows * self.related_previews_per_row):
-            preview = VideoPreviewWidget(i)
+            preview = VideoPreviewWidget(i, max_width=related_preview_max_width)
             self.related_layout.addWidget(
                 preview,
                 i // self.related_previews_per_row,
@@ -161,9 +163,12 @@ class SVP(QMainWindow):
         self.library_widget = QWidget()
         self.library_layout = QGridLayout(self.library_widget)
         self.library_layout.setSpacing(2)
+
+        library_preview_max_width = width * 1 / self.library_previews_per_row
         for i in range(self.library_rows * self.library_previews_per_row):
             preview = VideoPreviewWidget(
-                i + (self.related_rows * self.related_previews_per_row)
+                i + (self.related_rows * self.related_previews_per_row),
+                max_width=library_preview_max_width,
             )
             self.library_layout.addWidget(
                 preview,
@@ -204,14 +209,18 @@ class SVP(QMainWindow):
 
         self._hide_related()
 
-        self.space_shortcut = QShortcut(QKeySequence("Space"), self)
-        self.space_shortcut.activated.connect(self._toggle_playback)
-        self.left_shortcut = QShortcut(QKeySequence("Left"), self)
-        self.left_shortcut.activated.connect(self._restart_previews)
-        self.right_shortcut = QShortcut(QKeySequence("Right"), self)
-        self.right_shortcut.activated.connect(lambda: self._jump_minutes(1))
+        self.toggle_playback_shortcut = QShortcut(QKeySequence("Space"), self)
+        self.toggle_playback_shortcut.activated.connect(self._toggle_playback)
+        self.restart_previews_shortcut = QShortcut(QKeySequence("Left"), self)
+        self.restart_previews_shortcut.activated.connect(self._restart_previews)
+        self.jump_shortcut = QShortcut(QKeySequence("Right"), self)
+        self.jump_shortcut.activated.connect(lambda: self._jump_minutes(1))
         self.randomize_shortcut = QShortcut(QKeySequence("R"), self)
         self.randomize_shortcut.activated.connect(self._randomize)
+        self.reset_files_shortcut = QShortcut(QKeySequence("C"), self)
+        self.reset_files_shortcut.activated.connect(
+            lambda: self.dropdown_files.setCurrentIndex(0)
+        )
         self.quit_shortcut = QShortcut(QKeySequence("Q"), self)
         self.quit_shortcut.activated.connect(self.close)
 
@@ -267,9 +276,24 @@ class SVP(QMainWindow):
         if self.selected_path:
             self._update_related()
 
+        current_related_videos = [
+            p.file_path for p in self.related_previews if p.file_path is not None
+        ]
+        previous_library_videos = [
+            p.file_path for p in self.library_previews if p.file_path is not None
+        ]
+
+        candidates = self.all_files
+        if len(candidates) > 2 * len(current_related_videos + previous_library_videos):
+            candidates = [
+                f
+                for f in self.all_files
+                if (f not in (current_related_videos + previous_library_videos))
+            ]
+
         selection = random.sample(
-            self.all_files,
-            min(len(self.all_files), self.library_rows * self.library_previews_per_row),
+            candidates,
+            min(len(candidates), self.library_rows * self.library_previews_per_row),
         )
 
         for i, preview in enumerate(self.library_previews):
@@ -331,15 +355,25 @@ class SVP(QMainWindow):
         )
 
         if self.checkbox_randomize_related.isChecked():
-            selection = random.sample(matches, num_to_show)
+            previous_related_videos = [
+                preview.file_path
+                for preview in self.related_previews
+                if preview.file_path is not None
+            ]
+
+            candidates = matches
+            if len(candidates) > 2 * len(previous_related_videos):
+                candidates = [m for m in matches if m not in previous_related_videos]
+
+            selection = random.sample(candidates, num_to_show)
             selection.sort()
         else:
             match = re.match(r"([A-Za-z-]+)(\d+)", os.path.basename(self.selected_path))
+            selection = []
             if match:
                 pref = match.group(1)
                 numb = int(match.group(2)) + self.skip_related
 
-                selection = []
                 next = [
                     pref + str(n) + "." for n in range(numb + 1, numb + num_to_show + 1)
                 ]
@@ -351,7 +385,6 @@ class SVP(QMainWindow):
                 self.skip_related += num_to_show - 1
             else:
                 logging.info("No more next related")
-                return
 
         # Fill the previews
         self.related_previews[0].load_video(self.selected_path)

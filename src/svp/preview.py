@@ -1,7 +1,6 @@
 import os
 
 from PySide6.QtWidgets import (
-    QApplication,
     QWidget,
     QGridLayout,
     QHBoxLayout,
@@ -20,12 +19,11 @@ from video import MPVVideoWidget
 class VideoPreviewWidget(QWidget):
     """Individual grid item with video and double-click support."""
 
-    def __init__(self, idx, parent=None):
+    def __init__(self, idx, max_width, parent=None):
         super().__init__(parent)
         self.idx = idx
 
-        width = QApplication.primaryScreen().availableGeometry().width() * 0.4
-        self.setMaximumWidth(width)
+        self.setMaximumWidth(max_width)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
 
         self.file_path = ""
@@ -36,7 +34,7 @@ class VideoPreviewWidget(QWidget):
         self.layout.setContentsMargins(2, 2, 2, 2)
 
         self.video_widget = MPVVideoWidget()
-        self.video_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.video_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         # This allows the widget to catch double clicks
         self.video_widget.installEventFilter(self)
         self.video_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -93,6 +91,9 @@ class VideoPreviewWidget(QWidget):
         self.video_widget.stop()
         self.jump_timer.stop()
 
+        self.video_widget.hide()
+        self.label_widget.hide()
+
         if file_path:
             self.video_widget.play(self.file_path)
             self.video_widget.show()
@@ -105,9 +106,6 @@ class VideoPreviewWidget(QWidget):
             QTimer.singleShot(
                 self.idx * 200, lambda: self.jump_timer.start(self.show_duration_ms)
             )
-        else:
-            self.video_widget.hide()
-            self.label_widget.hide()
 
     def _load_video_length(self):
         length = self.video_widget.length()
