@@ -274,7 +274,7 @@ class SVP(QMainWindow):
             return
 
         if self.selected_path:
-            self._update_related(randomize_first=True)
+            self._update_related(include_first=True)
 
         current_related_videos = [
             p.file_path for p in self.related_previews if p.file_path is not None
@@ -334,7 +334,7 @@ class SVP(QMainWindow):
         if path:
             open_with_player(path)
 
-    def _update_related(self, randomize_first: bool = False):
+    def _update_related(self, include_first: bool = False):
         # Determine matches
         matches = []
         if self.all_files and self.prefix:
@@ -387,7 +387,7 @@ class SVP(QMainWindow):
                 logging.info("No more next related")
 
         # Fill the previews
-        if randomize_first and matches and self.checkbox_randomize_related.isChecked():
+        if include_first and matches and self.checkbox_randomize_related.isChecked():
             shown = {p.file_path for p in self.related_previews if p.file_path}
             candidates = [m for m in matches if (m not in shown and m not in selection)]
             choice = random.choice(candidates) if candidates else None
@@ -395,7 +395,7 @@ class SVP(QMainWindow):
                 self.related_previews[0].load_video(choice)
             else:
                 self.related_previews[0].load_video(self.selected_path)
-        elif randomize_first and not self.checkbox_randomize_related.isChecked():
+        elif include_first and not self.checkbox_randomize_related.isChecked():
             self.related_previews[0].load_video(selection[0])
             selection = selection[1:]
             self.skip_related += 1
