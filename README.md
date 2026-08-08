@@ -1,6 +1,6 @@
 # SVP: Smart Video Previewer
 
-A hardware-accelerated desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid. It provides browsing functionality, automatically skips through video timelines, and groups related files using filename prefix extraction.
+A desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid. It provides browsing functionality, automatically skips through video timelines, and groups related files using filename prefix extraction.
 
 https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 
