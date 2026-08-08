@@ -1,4 +1,5 @@
 import os
+import sys
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -6,10 +7,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QSizePolicy,
+    QMenu,
 )
 from PySide6.QtCore import Qt, QEvent, QTimer
 
-from player import open_file_with_player
+from player import open_with_player, open_with_vlc, open_with_quicktime
 
 from style import MASK_OVERLAY_STYLE
 
@@ -128,9 +130,24 @@ class VideoPreviewWidget(QWidget):
             self.video_widget.set_muted(True)
         return super().event(event)
 
+    def contextMenuEvent(self, event):
+        # Context menu only on macOS
+        if sys.platform != "darwin" or not self.file_path:
+            return
+
+        menu = QMenu(self)
+        act_qtp = menu.addAction("Open with QuickTime Player")
+        act_vlc = menu.addAction("Open with VLC")
+
+        action = menu.exec(event.globalPos())
+        if action == act_vlc:
+            open_with_vlc(self.file_path)
+        elif action == act_qtp:
+            open_with_quicktime(self.file_path)
+
     def mouseDoubleClickEvent(self, event):
         if self.file_path:
-            open_file_with_player(self.file_path)
+            open_with_player(self.file_path)
 
     def resizeEvent(self, event):
         """Force the video to maintain a 16:9 aspect ratio based on its width."""

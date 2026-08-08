@@ -19,10 +19,10 @@ def main():
         folder = sys.argv[1]
         folder_path = QDir.toNativeSeparators(os.path.abspath(folder))
 
-    related_rows = 2
-    related_previews_per_row = 5
-    library_rows = 2
-    library_previews_per_row = 5
+    related_rows = 1
+    related_previews_per_row = 4
+    library_rows = 1
+    library_previews_per_row = 4
     if len(sys.argv) == 6:
         related_rows = int(sys.argv[2])
         related_previews_per_row = int(sys.argv[3])

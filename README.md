@@ -13,7 +13,7 @@ The previews above show recordings of a video from the [VisDrone-VID2019 dataset
     * **Related Grid:** Groups and reveals files matching the prefix of the selected video.
 * **Timeline Jump Cycles:** Automatically skips forward by 60 seconds every 10 seconds, providing an overview of video content over time.
 * **Contextual Audio Hover:** Previews are muted by default. Hovering over a video for 2 seconds automatically unmutes its audio feed.
-* **External Player Integration:** Double-clicking a preview or list item opens the file in an external player (using `VLC` on macOS/via `startfile` on Windows and `xdg-open` on Linux).
+* **External Player Integration:** Double-clicking a preview or list item opens the file using the system default player.
 * **Multi-Stream Rendering:** Uses OpenGL to draw video frames from `mpv` directly inside PySide6 widgets.
 
 ## Highlighted Interface Controls
@@ -35,8 +35,6 @@ The previews above show recordings of a video from the [VisDrone-VID2019 dataset
 ### Prerequisites
 `mpv` must be installed.
  * E.g. on **macOS:** `brew install mpv`
-
-On **macOS**, VLC must be available for usage as an external player.
 
 ### Setup
 Clone the repository:
@@ -65,10 +63,10 @@ Run the application from the terminal. You can optionally define the target fold
 | Argument | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `folder_path` | String | *Prompt* | Path to the video folder. If omitted, a folder picker will open. |
-| `related_rows` | Int | 2 | Number of rows for the **Related** grid. |
-| `related_cols` | Int | 5 | Number of columns for the **Related** grid. |
-| `library_rows` | Int | 2 | Number of rows for the **Library** grid. |
-| `library_cols` | Int | 5 | Number of columns for the **Library** grid. |
+| `related_rows` | Int | 1 | Number of rows for the **Related** grid. |
+| `related_cols` | Int | 4 | Number of columns for the **Related** grid. |
+| `library_rows` | Int | 1 | Number of rows for the **Library** grid. |
+| `library_cols` | Int | 4 | Number of columns for the **Library** grid. |
 
 ## File Naming & Prefix Logic
 
@@ -87,7 +85,7 @@ SVP uses a natural sorting algorithm. This makes it such that `Video2.mp4` appea
 
 ## Acknowledgments
 
-This project was developed with the assistance of Google Gemini 3.
+This project was developed with the assistance of Google Gemini 3 and GitHub Copilot.
 
 ## Dependencies
 
