@@ -13,7 +13,6 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 
 from player import open_with_player, open_with_vlc, open_with_quicktime
 
-from style import MASK_OVERLAY_STYLE
 
 from video import MPVVideoWidget
 
@@ -21,11 +20,12 @@ from video import MPVVideoWidget
 class VideoPreviewWidget(QWidget):
     """Individual grid item with video and double-click support."""
 
-    def __init__(self, idx, max_width, parent=None):
+    def __init__(self, idx, max_width, max_height, parent=None):
         super().__init__(parent)
         self.idx = idx
+        self.max_width = max_width
+        self.max_height = max_height
 
-        self.setMaximumWidth(max_width)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
 
         self.file_path = ""
@@ -40,10 +40,6 @@ class VideoPreviewWidget(QWidget):
         # This allows the widget to catch double clicks
         self.video_widget.installEventFilter(self)
         self.video_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-
-        self.mask_overlay = QLabel()
-        self.mask_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.mask_overlay.setStyleSheet(MASK_OVERLAY_STYLE)
 
         self.jump_timer = QTimer(self)
         self.jump_timer.timeout.connect(lambda: self.jump_seconds(self.skip_interval_s))
@@ -62,7 +58,6 @@ class VideoPreviewWidget(QWidget):
         self.label_layout.addStretch()
 
         self.layout.addWidget(self.video_widget, 0, 0)
-        self.layout.addWidget(self.mask_overlay, 0, 0)
         self.layout.addWidget(self.label_widget, 1, 0)
 
         self.setMouseTracking(True)
@@ -154,18 +149,14 @@ class VideoPreviewWidget(QWidget):
         target_video_width = self.width()
         target_video_height = int(target_video_width * 9 / 16)
 
-        label_height = self.label_widget.sizeHint().height()
-        max_available_height = (
-            self.height() - label_height - 6
-        )  # 6px buffer for layout margins
+        if target_video_width > self.max_width:
+            target_video_width = self.max_width
+            target_video_height = int(self.max_width * 9 / 16)
 
-        if target_video_height > max_available_height:
-            target_video_height = max(0, max_available_height)
-            target_video_width = int(target_video_height * 16 / 9)
-            self.video_widget.setFixedSize(target_video_width, target_video_height)
-            self.mask_overlay.setFixedSize(target_video_width, target_video_height)
-        else:
-            self.video_widget.setFixedHeight(target_video_height)
-            self.mask_overlay.setFixedHeight(target_video_height)
+        if target_video_height > self.max_height:
+            target_video_height = self.max_height
+            target_video_width = int(self.max_height * 16 / 9)
+
+        self.video_widget.setFixedSize(target_video_width, target_video_height)
 
         super().resizeEvent(event)

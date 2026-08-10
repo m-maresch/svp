@@ -2,9 +2,11 @@ import logging
 
 import mpv
 
-from PySide6.QtGui import QOpenGLContext
+from PySide6.QtGui import QOpenGLContext, QPainter, QPainterPath, QColor
 from PySide6.QtCore import Signal
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
+
+from style import BG_COLOR
 
 
 class MPVVideoWidget(QOpenGLWidget):
@@ -107,3 +109,14 @@ class MPVVideoWidget(QOpenGLWidget):
 
             # Tell mpv to render into our widget's active FBO
             self.mpv_ctx.render(flip_y=True, opengl_fbo={"w": w, "h": h, "fbo": fbo})
+
+            # Draw mask (black corners, transparent rounded center)
+            painter = QPainter(self)
+            full = QPainterPath()
+            full.addRect(self.rect())
+            radius = int(self.width() * 0.03)
+            rounded = QPainterPath()
+            rounded.addRoundedRect(self.rect(), radius, radius)
+            mask = full.subtracted(rounded)
+            painter.fillPath(mask, QColor(BG_COLOR))
+            painter.end()

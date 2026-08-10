@@ -1,3 +1,5 @@
+BG_COLOR = "#121214"
+
 HEADER_STYLE = """
 QLabel {
     font-size: 24px;
@@ -44,16 +46,6 @@ QPushButton {
 }
 QPushButton:hover {
     background-color: #5f3dc4;
-}
-"""
-
-
-MASK_OVERLAY_STYLE = """
-QLabel {
-    background-color: transparent;
-    border: 3px solid ; /* Matches app background */
-    border-radius: 12px;
-    margin: -3px;
 }
 """
 

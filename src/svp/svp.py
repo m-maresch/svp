@@ -59,8 +59,8 @@ class SVP(QMainWindow):
 
         screen = QApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = int(screen_geometry.width())
-        height = int(screen_geometry.height())
+        width = int(screen_geometry.width() * 0.85)
+        height = int(screen_geometry.height() * 0.85)
         self.resize(width, height)
 
         self.video_extensions = (".mp4", ".mov")
@@ -71,7 +71,6 @@ class SVP(QMainWindow):
         self.skip_related = 0
 
         self.container_widget = QWidget()
-        self.container_widget.setMaximumHeight(height * 0.95)
         self.setCentralWidget(self.container_widget)
         self.outer_layout = QVBoxLayout(self.container_widget)
 
@@ -136,9 +135,16 @@ class SVP(QMainWindow):
         self.related_layout = QGridLayout(self.related_widget)
         self.related_layout.setSpacing(2)
 
-        related_preview_max_width = width * 1 / self.related_previews_per_row
+        related_preview_max_width = width * 0.98 / self.related_previews_per_row
+        related_preview_max_height = (
+            height * 0.85 / (self.related_rows + self.library_rows)
+        )
         for i in range(self.related_rows * self.related_previews_per_row):
-            preview = VideoPreviewWidget(i, max_width=related_preview_max_width)
+            preview = VideoPreviewWidget(
+                i,
+                max_width=related_preview_max_width,
+                max_height=related_preview_max_height,
+            )
             self.related_layout.addWidget(
                 preview,
                 i // self.related_previews_per_row,
@@ -164,11 +170,15 @@ class SVP(QMainWindow):
         self.library_layout = QGridLayout(self.library_widget)
         self.library_layout.setSpacing(2)
 
-        library_preview_max_width = width * 1 / self.library_previews_per_row
+        library_preview_max_width = width * 0.98 / self.library_previews_per_row
+        library_preview_max_height = (
+            height * 0.85 / (self.related_rows + self.library_rows)
+        )
         for i in range(self.library_rows * self.library_previews_per_row):
             preview = VideoPreviewWidget(
                 i + (self.related_rows * self.related_previews_per_row),
                 max_width=library_preview_max_width,
+                max_height=library_preview_max_height,
             )
             self.library_layout.addWidget(
                 preview,
