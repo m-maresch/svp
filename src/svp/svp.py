@@ -61,7 +61,22 @@ class SVP(QMainWindow):
         screen_geometry = screen.availableGeometry()
         width = int(screen_geometry.width() * 0.85)
         height = int(screen_geometry.height() * 0.85)
-        self.resize(width, height)
+        self.resize(width * 1.15, height)
+
+        width_related_preview = width / related_previews_per_row
+        width_library_preview = width / library_previews_per_row
+
+        ar = 16.0 / 9.0
+        ar_height_related_preview = width_related_preview / ar
+        ar_height_library_preview = width_library_preview / ar
+        ar_height_related_grid = related_rows * ar_height_related_preview
+        ar_height_library_grid = library_rows * ar_height_library_preview
+        ar_height_total = ar_height_related_grid + ar_height_library_grid
+
+        height_related_grid = height * (ar_height_related_grid / ar_height_total)
+        height_library_grid = height * (ar_height_library_grid / ar_height_total)
+        height_related_preview = (height_related_grid / related_rows) * 0.8
+        height_library_preview = (height_library_grid / library_rows) * 0.8
 
         self.video_extensions = (".mp4", ".mov")
         self.all_files = []
@@ -135,15 +150,11 @@ class SVP(QMainWindow):
         self.related_layout = QGridLayout(self.related_widget)
         self.related_layout.setSpacing(2)
 
-        related_preview_max_width = width * 0.98 / self.related_previews_per_row
-        related_preview_max_height = (
-            height * 0.85 / (self.related_rows + self.library_rows)
-        )
         for i in range(self.related_rows * self.related_previews_per_row):
             preview = VideoPreviewWidget(
                 i,
-                max_width=related_preview_max_width,
-                max_height=related_preview_max_height,
+                max_width=width_related_preview,
+                max_height=height_related_preview,
             )
             self.related_layout.addWidget(
                 preview,
@@ -170,15 +181,11 @@ class SVP(QMainWindow):
         self.library_layout = QGridLayout(self.library_widget)
         self.library_layout.setSpacing(2)
 
-        library_preview_max_width = width * 0.98 / self.library_previews_per_row
-        library_preview_max_height = (
-            height * 0.85 / (self.related_rows + self.library_rows)
-        )
         for i in range(self.library_rows * self.library_previews_per_row):
             preview = VideoPreviewWidget(
                 i + (self.related_rows * self.related_previews_per_row),
-                max_width=library_preview_max_width,
-                max_height=library_preview_max_height,
+                max_width=width_library_preview,
+                max_height=height_library_preview,
             )
             self.library_layout.addWidget(
                 preview,
