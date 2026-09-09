@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QFrame,
     QMainWindow,
     QWidget,
@@ -23,6 +24,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QEvent, QTimer, QDir
 from PySide6.QtGui import QKeySequence, QShortcut
+
+from mix_dialog import MixDialog
+from mixer import VideoMixer
 
 from player import open_with_player
 
@@ -82,7 +86,7 @@ class SVP(QMainWindow):
         self.all_files = []
         self.selected_path = ""
         self.prefix = ""
-        self.playback = True
+        self.playback = False
         self.skip_related = 0
 
         self.container_widget = QWidget()
@@ -95,7 +99,7 @@ class SVP(QMainWindow):
         self.btn_restart = QPushButton("↻ Restart")
         self.btn_restart.clicked.connect(lambda: self._restart_previews())
         self.btn_restart.setStyleSheet(BUTTON_STYLE_RED)
-        self.btn_toggle_playback = QPushButton("⏸ Pause")
+        self.btn_toggle_playback = QPushButton("▶ Play")
         self.btn_toggle_playback.clicked.connect(lambda: self._toggle_playback())
         self.btn_toggle_playback.setStyleSheet(BUTTON_STYLE_RED)
         self.btn_plus_1_min = QPushButton("▶▶ 1 min")
@@ -113,6 +117,9 @@ class SVP(QMainWindow):
         self.btn_randomize = QPushButton("🎲 Randomize")
         self.btn_randomize.setStyleSheet(BUTTON_STYLE_PURPLE)
         self.btn_randomize.clicked.connect(self._randomize)
+        self.btn_mix = QPushButton("⚡ Mix")
+        self.btn_mix.setStyleSheet(BUTTON_STYLE_PURPLE)
+        self.btn_mix.clicked.connect(lambda: self._open_mix_dialog())
         self.checkbox_randomize_related = QCheckBox("Include related")
         self.checkbox_randomize_related.setStyleSheet(CHECKBOX_STYLE)
         self.checkbox_randomize_related.setChecked(True)
@@ -125,6 +132,7 @@ class SVP(QMainWindow):
         self.controls.addWidget(self.btn_hide_related)
         self.controls.addWidget(self.btn_toggle_library)
         self.controls.addWidget(self.btn_randomize)
+        self.controls.addWidget(self.btn_mix)
         self.controls.addWidget(self.checkbox_randomize_related)
         self.outer_layout.addLayout(self.controls)
 
@@ -266,6 +274,10 @@ class SVP(QMainWindow):
     def _set_playback(self, active):
         for preview in self.related_previews + self.library_previews:
             preview.set_playback(active)
+
+    def _set_jump_timer(self, active):
+        for preview in self.related_previews + self.library_previews:
+            preview.set_jump_timer(active)
 
     def _hide_related(self):
         self.related_header.hide()
@@ -443,11 +455,43 @@ class SVP(QMainWindow):
         )
         self._randomize()
 
+    def _open_mix_dialog(self):
+        if self.playback:
+            self._toggle_playback()
+
+        mix_dialog = MixDialog(
+            self, prefixes=["None"] + sorted(_all_prefixes(self.all_files))
+        )
+        if mix_dialog.exec() == QDialog.Accepted:
+            settings = mix_dialog.get_data()
+            self._mix(settings)
+
+    def _mix(self, settings):
+        sample = settings["sample"]
+        base_duration_sec = settings["base_duration"]
+        spread_duration_sec = settings["spread_duration"]
+        prefix = settings["prefix"]
+        max_videos = settings["max_videos"]
+
+        matches = [
+            f for f in self.all_files if prefix == _prefix(f) or prefix == "None"
+        ]
+        selected_files = random.sample(
+            matches,
+            min(max_videos, len(matches)),
+        )
+
+        self.mixer = VideoMixer(sample, base_duration_sec, spread_duration_sec)
+        self.mixer.mix(selected_files)
+
     def changeEvent(self, event):
-        """Detects focus changes to pause/resume all videos."""
+        """Detects focus changes to pause all videos."""
         if event.type() == QEvent.ActivationChange:
             is_active = self.isActiveWindow()
-            self._set_playback(is_active)
+
+            self._set_jump_timer(is_active)
+            if not is_active and self.playback:
+                self._toggle_playback()
 
         super().changeEvent(event)
 

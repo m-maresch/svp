@@ -1,6 +1,6 @@
 # SVP: Smart Video Previewer
 
-A desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid. It provides browsing functionality, automatically skips through video timelines, and groups related files using filename prefix extraction.
+A desktop application built with Python, PySide6, and `mpv` to simultaneously preview multiple videos in a dynamic grid. It provides browsing functionality, automatically skips through video timelines, groups related files using filename prefix extraction, and supports real-time mixing of videos.
 
 https://github.com/user-attachments/assets/c3f97605-e6d6-4b95-853d-d7ca78b3576b
 
@@ -13,6 +13,7 @@ The previews above show recordings of a video from the [VisDrone-VID2019 dataset
     * **Related Grid:** Groups and reveals files matching the prefix of the selected video.
 * **Timeline Jump Cycles:** Automatically skips forward by 60 seconds every 10 seconds, providing an overview of video content over time.
 * **Contextual Audio Hover:** Previews are muted by default. Hovering over a video for 2 seconds automatically unmutes its audio feed.
+* **Real-Time Mixing:** Mix a random selection of videos into one, sampling clips of the individual videos.
 * **External Player Integration:** Double-clicking a preview or list item opens the file using the system default player.
 * **Multi-Stream Rendering:** Uses OpenGL to draw video frames from `mpv` directly inside PySide6 widgets.
 
@@ -21,6 +22,7 @@ The previews above show recordings of a video from the [VisDrone-VID2019 dataset
 * **↻ Restart:** Resets all active previews to the 0:00 timestamp.
 * **▶▶ 1 min / 5 min:** Offsets all playing videos forward by the specified duration.
 * **🎲 Randomize:** Refreshes the grids with a new random selection from the directory.
+* **⚡ Mix:** Create a mix of multiple videos sharing a prefix, with configurable sampling of clips (base duration + random offset).
 * **Prefix Dropdown:** Filters the side list to show only files with a specific prefix.
 * **Include Related Checkbox:** Toggles between random selection and ordered sequence for the "Related" grid.
 
@@ -49,7 +51,7 @@ Install dependencies in Python venv:
 ```
 python -m venv .
 source bin/activate
-pip install PySide6 mpv
+pip install PySide6 mpv opencv-python
 ```
 
 ## Usage & CLI Arguments
@@ -93,6 +95,7 @@ Thanks to everyone contributing to any of the following projects:
 
 - PySide6 (licensed under GPLv3)
 - mpv (licensed under GPLv2 or later)
+- OpenCV
 
 ## License
 

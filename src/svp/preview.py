@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QEvent, QTimer
 
-from player import open_with_player, open_with_vlc, open_with_quicktime
+from player import open_with_player, open_with_vlc, open_with_quicktime, open_with_mpv
 
 
 from video import MPVVideoWidget
@@ -77,10 +77,14 @@ class VideoPreviewWidget(QWidget):
         if self.file_path:
             if active:
                 self.video_widget.set_paused(False)
-                self.jump_timer.start(self.show_duration_ms)
             else:
                 self.video_widget.set_paused(True)
-                self.jump_timer.stop()
+
+    def set_jump_timer(self, active: bool):
+        if active:
+            self.jump_timer.start()
+        else:
+            self.jump_timer.stop()
 
     def load_video(self, file_path):
         self.file_path = file_path
@@ -101,7 +105,7 @@ class VideoPreviewWidget(QWidget):
             QTimer.singleShot(1000, self._load_video_length)
             QTimer.singleShot(1500, lambda: self.video_widget.seek_relative(20))
             QTimer.singleShot(
-                self.idx * 200, lambda: self.jump_timer.start(self.show_duration_ms)
+                self.idx * 500, lambda: self.jump_timer.start(self.show_duration_ms)
             )
 
     def _load_video_length(self):
@@ -133,12 +137,15 @@ class VideoPreviewWidget(QWidget):
         menu = QMenu(self)
         act_qtp = menu.addAction("Open with QuickTime Player")
         act_vlc = menu.addAction("Open with VLC")
+        act_mpv = menu.addAction("Open with MPV")
 
         action = menu.exec(event.globalPos())
         if action == act_vlc:
             open_with_vlc(self.file_path)
         elif action == act_qtp:
             open_with_quicktime(self.file_path)
+        elif action == act_mpv:
+            open_with_mpv(self.file_path)
 
     def mouseDoubleClickEvent(self, event):
         if self.file_path:

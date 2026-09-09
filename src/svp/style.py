@@ -82,3 +82,20 @@ QComboBox:hover {
     border-color: #228be6; /* Blue border on hover */
 }
 """
+
+FORM_ELEMENT_STYLE = """
+QSpinBox {
+    background-color: #2b2c30;
+    color: white;
+    border: 1px solid #373a40;
+    border-radius: 4px;
+    padding: 5px;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    width: 20px;
+}
+QSpinBox:disabled {
+    background-color: #2d2d2d;
+    color: #777777;
+}
+"""
