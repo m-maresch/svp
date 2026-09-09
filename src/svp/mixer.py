@@ -1,14 +1,12 @@
 import random
 
 import cv2
-from PySide6.QtCore import QObject
 
 from player import open_with_mpv
 
 
-class VideoMixer(QObject):
+class VideoMixer:
     def __init__(self, sample, base_duration, spread_duration):
-        super().__init__()
         self.sample = sample
         self.base_duration = base_duration
         self.spread_duration = spread_duration
