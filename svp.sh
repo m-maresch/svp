@@ -2,4 +2,4 @@
 
 source ./bin/activate
 
-python src/svp/main.py $@
+LC_NUMERIC=C python src/svp/main.py $@
