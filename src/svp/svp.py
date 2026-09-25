@@ -471,11 +471,15 @@ class SVP(QMainWindow):
         base_duration_sec = settings["base_duration"]
         spread_duration_sec = settings["spread_duration"]
         prefix = settings["prefix"]
+        include_subprefixes = settings["include_subprefixes"]
         max_videos = settings["max_videos"]
 
-        matches = [
-            f for f in self.all_files if prefix == _prefix(f) or prefix == "None"
-        ]
+        if include_subprefixes:
+            matches = [f for f in self.all_files if _prefix(f).startswith(prefix)]
+        else:
+            matches = [
+                f for f in self.all_files if prefix == _prefix(f) or prefix == "None"
+            ]
         selected_files = random.sample(
             matches,
             min(max_videos, len(matches)),
