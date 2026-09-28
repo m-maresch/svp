@@ -76,7 +76,7 @@ class MPVVideoWidget(QOpenGLWidget):
             osd_level=0,
             vd_lavc_fast=True,
         )
-        self.mpv_player["vf"] = "scale=-2:240,fps=12"
+        self.mpv_player["vf"] = "scale=-2:480,fps=15"
         self.mpv_player["framedrop"] = "decoder"
         self.mpv_player["video-unscaled"] = "no"
         self.mpv_player["panscan"] = 1.0

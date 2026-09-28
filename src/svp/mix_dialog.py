@@ -1,13 +1,16 @@
 from PySide6.QtWidgets import (
     QPushButton,
     QDialog,
+    QFileDialog,
     QFormLayout,
+    QLabel,
     QSpinBox,
     QComboBox,
     QCheckBox,
 )
 
 from style import (
+    BUTTON_STYLE_BLUE,
     BUTTON_STYLE_PURPLE,
     CHECKBOX_STYLE,
     DROPDOWN_STYLE,
@@ -64,6 +67,15 @@ class MixDialog(QDialog):
         self.layout.addRow("Subprefixes:", self.checkbox_include_subprefixes)
         self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
 
+        self.btn_select_videos = QPushButton("Select videos")
+        self.btn_select_videos.setStyleSheet(BUTTON_STYLE_BLUE)
+        self.btn_select_videos.clicked.connect(self._select_videos)
+        self.layout.addRow("Manual selection:", self.btn_select_videos)
+        self.selected_videos = []
+
+        self.label_select_videos = QLabel("No manual selection")
+        self.layout.addRow("", self.label_select_videos)
+
         self.btn_mix = QPushButton("⚡ Mix")
         self.btn_mix.setStyleSheet(BUTTON_STYLE_PURPLE)
         self.btn_mix.clicked.connect(self.accept)
@@ -81,6 +93,25 @@ class MixDialog(QDialog):
             self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
             self.checkbox_include_subprefixes.setChecked(False)
 
+    def _select_videos(self):
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select Video Files",
+            "",
+            "Video Files (*.mp4 *.avi *.mkv *.mov);;All Files (*)",
+        )
+        if files:
+            self.selected_videos = files
+
+            num_videos = len(self.selected_videos)
+            self.label_select_videos.setText(
+                f"{num_videos} video{'s' if num_videos > 1 else ''} selected"
+            )
+
+            self.layout.setRowVisible(self.spin_max_videos, False)
+            self.layout.setRowVisible(self.combo_prefix, False)
+            self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
+
     def get_data(self):
         return {
             "sample": self.checkbox_sample.isChecked(),
@@ -89,4 +120,5 @@ class MixDialog(QDialog):
             "max_videos": self.spin_max_videos.value(),
             "prefix": self.combo_prefix.currentText(),
             "include_subprefixes": self.checkbox_include_subprefixes.isChecked(),
+            "selected_videos": self.selected_videos,
         }

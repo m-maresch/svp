@@ -473,17 +473,23 @@ class SVP(QMainWindow):
         prefix = settings["prefix"]
         include_subprefixes = settings["include_subprefixes"]
         max_videos = settings["max_videos"]
+        selected_videos = settings["selected_videos"]
 
-        if include_subprefixes:
-            matches = [f for f in self.all_files if _prefix(f).startswith(prefix)]
+        if selected_videos:
+            selected_files = selected_videos
         else:
-            matches = [
-                f for f in self.all_files if prefix == _prefix(f) or prefix == "None"
-            ]
-        selected_files = random.sample(
-            matches,
-            min(max_videos, len(matches)),
-        )
+            if include_subprefixes:
+                matches = [f for f in self.all_files if _prefix(f).startswith(prefix)]
+            else:
+                matches = [
+                    f
+                    for f in self.all_files
+                    if prefix == _prefix(f) or prefix == "None"
+                ]
+            selected_files = random.sample(
+                matches,
+                min(max_videos, len(matches)),
+            )
 
         self.mixer = VideoMixer(sample, base_duration_sec, spread_duration_sec)
         self.mixer.mix(selected_files)
