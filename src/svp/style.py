@@ -71,15 +71,29 @@ QCheckBox::indicator:checked {
 """
 
 DROPDOWN_STYLE = """
-QComboBox {
+QToolButton {
     background-color: #2b2c30;
     color: white;
-    border: 1px solid #373a40;
+    border: none;
     border-radius: 4px;
-    padding: 5px;
+    padding: 6px 12px;
+    font-size: 13px;
 }
-QComboBox:hover {
-    border-color: #228be6; /* Blue border on hover */
+QToolButton:hover {
+    background-color: #373a40;
+}
+QToolButton::menu-indicator {
+    width: 0px;
+}
+"""
+
+DROPDOWN_CHECKBOX_STYLE = """
+QCheckBox {
+    color: white;
+    padding: 6px;
+}
+QCheckBox:hover {
+    background-color: #373a40;
 }
 """
 

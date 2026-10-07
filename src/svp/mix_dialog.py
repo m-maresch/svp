@@ -5,10 +5,10 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
     QSpinBox,
-    QComboBox,
     QCheckBox,
 )
 
+from multi_select_dropdown import MultiSelectDropdown
 from style import (
     BUTTON_STYLE_BLUE,
     BUTTON_STYLE_PURPLE,
@@ -26,6 +26,7 @@ class MixDialog(QDialog):
 
         self.layout = QFormLayout(self)
         form_element_width = 150
+        form_element_width_short = 120
 
         self.checkbox_sample = QCheckBox()
         self.checkbox_sample.setStyleSheet(CHECKBOX_STYLE)
@@ -54,12 +55,11 @@ class MixDialog(QDialog):
         self.spin_max_videos.setValue(10)
         self.layout.addRow("Max videos:", self.spin_max_videos)
 
-        self.combo_prefix = QComboBox()
-        self.combo_prefix.setFixedWidth(form_element_width)
-        self.combo_prefix.setStyleSheet(DROPDOWN_STYLE)
-        self.combo_prefix.addItems(prefixes)
-        self.combo_prefix.currentTextChanged.connect(self._prefix_changed)
-        self.layout.addRow("Prefix:", self.combo_prefix)
+        self.dropdown_prefixes = MultiSelectDropdown(prefixes)
+        self.dropdown_prefixes.setFixedWidth(form_element_width_short)
+        self.dropdown_prefixes.setStyleSheet(DROPDOWN_STYLE)
+        self.dropdown_prefixes.selectionChanged.connect(self._prefixes_changed)
+        self.layout.addRow("Prefixes:", self.dropdown_prefixes)
 
         self.checkbox_include_subprefixes = QCheckBox()
         self.checkbox_include_subprefixes.setStyleSheet(CHECKBOX_STYLE)
@@ -68,6 +68,7 @@ class MixDialog(QDialog):
         self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
 
         self.btn_select_videos = QPushButton("Select videos")
+        self.btn_select_videos.setFixedWidth(form_element_width_short)
         self.btn_select_videos.setStyleSheet(BUTTON_STYLE_BLUE)
         self.btn_select_videos.clicked.connect(self._select_videos)
         self.layout.addRow("Manual selection:", self.btn_select_videos)
@@ -85,9 +86,9 @@ class MixDialog(QDialog):
         self.spin_base_duration.setEnabled(value)
         self.spin_spread_duration.setEnabled(value)
 
-    def _prefix_changed(self, value):
-        is_prefix = value != "None"
-        if is_prefix:
+    def _prefixes_changed(self, prefixes):
+        has_prefix = len(prefixes) > 0
+        if has_prefix:
             self.layout.setRowVisible(self.checkbox_include_subprefixes, True)
         else:
             self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
@@ -109,7 +110,7 @@ class MixDialog(QDialog):
             )
 
             self.layout.setRowVisible(self.spin_max_videos, False)
-            self.layout.setRowVisible(self.combo_prefix, False)
+            self.layout.setRowVisible(self.dropdown_prefixes, False)
             self.layout.setRowVisible(self.checkbox_include_subprefixes, False)
 
     def get_data(self):
@@ -118,7 +119,7 @@ class MixDialog(QDialog):
             "base_duration": self.spin_base_duration.value(),
             "spread_duration": self.spin_spread_duration.value(),
             "max_videos": self.spin_max_videos.value(),
-            "prefix": self.combo_prefix.currentText(),
+            "prefixes": self.dropdown_prefixes.selected(),
             "include_subprefixes": self.checkbox_include_subprefixes.isChecked(),
             "selected_videos": self.selected_videos,
         }

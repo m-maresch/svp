@@ -459,9 +459,7 @@ class SVP(QMainWindow):
         if self.playback:
             self._toggle_playback()
 
-        mix_dialog = MixDialog(
-            self, prefixes=["None"] + sorted(_all_prefixes(self.all_files))
-        )
+        mix_dialog = MixDialog(self, prefixes=sorted(_all_prefixes(self.all_files)))
         if mix_dialog.exec() == QDialog.Accepted:
             settings = mix_dialog.get_data()
             self._mix(settings)
@@ -470,7 +468,7 @@ class SVP(QMainWindow):
         sample = settings["sample"]
         base_duration_sec = settings["base_duration"]
         spread_duration_sec = settings["spread_duration"]
-        prefix = settings["prefix"]
+        prefixes = settings["prefixes"]
         include_subprefixes = settings["include_subprefixes"]
         max_videos = settings["max_videos"]
         selected_videos = settings["selected_videos"]
@@ -479,12 +477,17 @@ class SVP(QMainWindow):
             selected_files = selected_videos
         else:
             if include_subprefixes:
-                matches = [f for f in self.all_files if _prefix(f).startswith(prefix)]
+                matches = [
+                    f
+                    for f in self.all_files
+                    if any([_prefix(f).startswith(prefix) for prefix in prefixes])
+                ]
             else:
                 matches = [
                     f
                     for f in self.all_files
-                    if prefix == _prefix(f) or prefix == "None"
+                    if any([prefix == _prefix(f) for prefix in prefixes])
+                    or not prefixes
                 ]
             selected_files = random.sample(
                 matches,
